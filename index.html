@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>FOLIUM · Gastos por obra</title>
+<style>
+  :root{
+    --verde:#2f5d3a; --verde-2:#3f7a4c; --verde-claro:#e8efe6; --fondo:#f5f6f2; --tarjeta:#fff;
+    --texto:#1f2a22; --suave:#6b766e; --borde:#dde3dc; --amarillo:#c98a00; --amarillo-bg:#fff4d6;
+    --rojo:#b3261e; --rojo-bg:#fde7e5; --ok:#2e7d32; --ok-bg:#e6f4e7; --radio:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--fondo);color:var(--texto);
+    font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif}
+  button,input,select,textarea{font:inherit;color:inherit}
+  header{position:sticky;top:0;z-index:5;background:var(--verde);color:#fff;padding:10px 14px;
+    display:flex;align-items:center;gap:10px}
+  header .marca{font-weight:700;letter-spacing:.3px;flex:1}
+  header .marca small{display:block;font-weight:400;opacity:.8;font-size:12px}
+  .chip-user{background:rgba(255,255,255,.16);border:0;color:#fff;border-radius:20px;padding:6px 12px;cursor:pointer}
+  nav{display:flex;gap:6px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--borde);
+    position:sticky;top:52px;z-index:4;overflow-x:auto}
+  nav button{border:1px solid var(--borde);background:#fff;border-radius:20px;padding:7px 14px;white-space:nowrap;cursor:pointer}
+  nav button.activo{background:var(--verde);border-color:var(--verde);color:#fff}
+  nav .badge{background:var(--rojo);color:#fff;border-radius:10px;padding:0 6px;font-size:12px;margin-left:4px}
+  main{max-width:980px;margin:0 auto;padding:14px 12px 90px}
+  h2{font-size:19px;margin:6px 0 12px}
+  h3{font-size:16px;margin:18px 0 8px}
+  .tarjeta{background:var(--tarjeta);border:1px solid var(--borde);border-radius:var(--radio);padding:14px;margin-bottom:12px}
+  .obra{cursor:pointer}
+  .obra:hover{border-color:var(--verde-2)}
+  .fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .entre{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .suave{color:var(--suave);font-size:13px}
+  .barra{height:9px;background:#edf0ec;border-radius:6px;overflow:hidden;margin:8px 0 4px}
+  .barra > i{display:block;height:100%;background:var(--ok)}
+  .barra.amarillo > i{background:var(--amarillo)} .barra.rojo > i{background:var(--rojo)}
+  .etq{display:inline-block;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:600}
+  .etq.ok{background:var(--ok-bg);color:var(--ok)} .etq.amarillo{background:var(--amarillo-bg);color:#8a5d00}
+  .etq.rojo{background:var(--rojo-bg);color:var(--rojo)} .etq.gris{background:#eef0ee;color:var(--suave)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+  .kpi{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:10px}
+  .kpi b{display:block;font-size:18px;margin-top:2px}
+  .kpi.verde{background:var(--ok-bg);border-color:#cfe6d1}
+  .kpi.rojo{background:var(--rojo-bg);border-color:#f4c7c3}
+  .btn{border:0;border-radius:10px;padding:10px 16px;background:var(--verde);color:#fff;cursor:pointer;font-weight:600}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.sec{background:#fff;color:var(--verde);border:1px solid var(--verde)}
+  .btn.peligro{background:#fff;color:var(--rojo);border:1px solid var(--rojo)}
+  .btn.chico{padding:6px 10px;font-size:13px;border-radius:8px}
+  .btn.ancho{width:100%}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--borde);margin:6px 0 12px;overflow-x:auto}
+  .tabs button{border:0;background:none;padding:9px 12px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+  .tabs button.activo{border-color:var(--verde);color:var(--verde);font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:7px 6px;border-bottom:1px solid var(--borde);text-align:left;vertical-align:top}
+  th{font-size:12px;color:var(--suave);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+  td.n,th.n{text-align:right;white-space:nowrap}
+  .scroll{overflow-x:auto}
+  label{display:block;font-size:13px;color:var(--suave);margin:10px 0 4px}
+  input,select,textarea{width:100%;border:1px solid var(--borde);border-radius:9px;padding:9px 10px;background:#fff}
+  textarea{min-height:70px}
+  .dos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tres{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  @media (max-width:560px){.dos,.tres{grid-template-columns:1fr}}
+  .usuarios{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .usuarios button{padding:18px 10px;font-size:17px;border-radius:12px;border:1px solid var(--borde);background:#fff;cursor:pointer}
+  .usuarios button:hover{border-color:var(--verde);background:var(--verde-claro)}
+  .gasto{display:flex;gap:10px;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--borde);cursor:pointer}
+  .gasto:last-child{border-bottom:0}
+  .gasto.anulado{opacity:.45;text-decoration:line-through}
+  .modal-fondo{position:fixed;inset:0;background:rgba(20,30,22,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+  @media (min-width:700px){.modal-fondo{align-items:center}}
+  .modal{background:#fff;width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:16px}
+  @media (min-width:700px){.modal{border-radius:16px}}
+  .modal .cerrar{float:right;border:0;background:none;font-size:22px;cursor:pointer;line-height:1}
+  .reparto{border:1px dashed var(--borde);border-radius:10px;padding:8px 10px;margin-top:8px}
+  .reparto .linea{display:grid;grid-template-columns:1.3fr 1.3fr 70px 32px;gap:6px;align-items:center;margin:6px 0}
+  @media (max-width:560px){.reparto .linea{grid-template-columns:1fr 64px 36px}.reparto .linea > select:first-child{grid-column:1/-1}}
+  .x{border:0;background:#f1f1f1;border-radius:8px;height:36px;cursor:pointer}
+  .miniaturas{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .miniaturas .m{width:78px;height:78px;border-radius:8px;border:1px solid var(--borde);background:#f2f2f2 center/cover no-repeat;
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--suave);cursor:pointer;position:relative}
+  .miniaturas .m .q{position:absolute;top:-6px;right:-6px;background:#fff;border:1px solid var(--borde);border-radius:50%;width:22px;height:22px;line-height:18px;text-align:center}
+  .aviso{border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
+  .aviso.amarillo{background:var(--amarillo-bg)} .aviso.rojo{background:var(--rojo-bg)} .aviso.info{background:var(--verde-claro)}
+  .flotante{position:fixed;right:16px;bottom:18px;z-index:6;border-radius:30px;padding:14px 20px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+  #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#1f2a22;color:#fff;padding:10px 16px;border-radius:10px;z-index:30;display:none;max-width:90vw}
+  .cargando{padding:40px;text-align:center;color:var(--suave)}
+  .pres td input{padding:6px 7px;border-radius:7px;min-width:60px}
+  .pres td.ins input{min-width:170px}
+  .totales td{font-weight:700;border-top:2px solid var(--borde)}
+  .visor img{max-width:100%;border-radius:10px}
+  .visor iframe{width:100%;height:70vh;border:0}
+  a{color:var(--verde-2)}
+  .ia{background:#fffbe6 !important;border-color:#e6c65c !important}
+  .lectura{border:1px solid #e6c65c;background:#fffdf3;border-radius:10px;padding:10px 12px;margin-top:10px;font-size:14px}
+  .lectura table{font-size:13px;margin-top:6px}
+  .girando{display:inline-block;width:14px;height:14px;border:2px solid #c9b25a;border-top-color:transparent;border-radius:50%;animation:g 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes g{to{transform:rotate(360deg)}}
+  .filtros{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+  @media (max-width:760px){.filtros{grid-template-columns:1fr 1fr}.filtros input[type=search]{grid-column:1/-1}}
+  .grupo{border-bottom:1px solid var(--borde);padding:8px 0}
+  .grupo:last-child{border-bottom:0}
+  .grupo .cab{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700}
+  .gasto.sel{display:grid;grid-template-columns:28px 1fr auto;align-items:start}
+  .gasto.sel input{width:20px;height:20px;margin-top:2px}
+  .barra-inf{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--borde);padding:10px 14px;z-index:8;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;box-shadow:0 -4px 14px rgba(0,0,0,.08)}
+  .mesnav{display:flex;align-items:center;gap:6px}
+  .mesnav input{width:auto}
+  .mesnav button{border:1px solid var(--borde);background:#fff;border-radius:8px;width:36px;height:38px;cursor:pointer}
+  nav button.foto{background:#fff7dc;border-color:#e6c65c;font-weight:600}
+  .rapido{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 2px}
+  .rapido button{border:1px solid var(--borde);background:#fff;border-radius:16px;padding:5px 10px;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <div class="marca">FOLIUM · Gastos por obra<small id="subtitulo">Compras, boletas y presupuesto</small></div>
+  <button class="chip-user" id="chipUser" style="display:none" onclick="pedirUsuario()"></button>
+</header>
+<nav id="nav" style="display:none"></nav>
+<main id="vista"><div class="cargando">Cargando…</div></main>
+<div id="modal"></div>
+<div id="toast"></div>
+
+<script>
+/* =================================================================== */
+/* Estado y comunicación con el servidor                                */
+/* =================================================================== */
+var S = { datos: null, user: null, vista: 'obras', obraId: null, tab: 'resumen', verCerradas: false,
+          mes: null, f: { q: '', mes: '', obra: '', persona: '', estado: '' }, sel: {} };
+var USUARIOS_BASE = ['Gerónimo', 'Agustín', 'Emiliano', 'Marcos'];
+var MEDIOS_PAGO = ['Transferencia', 'Efectivo', 'Tarjeta de débito', 'Tarjeta de crédito', 'Cuenta corriente proveedor', 'Otro'];
+var COMPROBANTES = ['e-Factura a RUT de FOLIUM', 'e-Ticket / boleta consumidor final', 'Sin comprobante'];
+
+/* Dirección del servidor (Apps Script). Se usa cuando la pantalla está publicada fuera de Google. */
+var API_URL = 'https://script.google.com/macros/s/AKfycbzVu3-WB15CSttRYUUMspItQS2HPbSP7PijoVzDDkqKd4xkGiHJyLDfbSh2QsvTl8_f/exec';
+function api(fn) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  if (!(window.google && google.script && google.script.run) && !(window.MOCK && window.MOCK[fn]) && API_URL) {
+    return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: fn, args: args, clave: leerLocal('folium_clave') || '' }), redirect: 'follow' })
+      .then(function (r) { if (!r.ok) throw new Error('El servidor respondió ' + r.status); return r.json(); }, function () { throw new Error('Sin conexión con el servidor. Revisá internet y probá de nuevo.'); })
+      .then(function (j) { if (!j.ok) { if (j.error === 'CLAVE_INCORRECTA') { pedirClave(); throw new Error('Falta la clave del equipo'); } throw new Error(j.error || 'Error del servidor'); } return j.result; })
+      .catch(function (e) { throw (e && e.message) ? e.message : String(e); });
+  }
+  return new Promise(function (ok, mal) {
+    if (window.google && google.script && google.script.run) {
+      var r = google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) { mal(e && e.message ? e.message : String(e)); });
+      r[fn].apply(r, args);
+    } else if (window.MOCK && window.MOCK[fn]) {
+      try { ok(window.MOCK[fn].apply(null, args)); } catch (e) { mal(e.message); }
+    } else { mal('Sin conexión con el servidor'); }
+  });
+}
+
+function pedirClave() {
+  var ya = leerLocal('folium_clave');
+  document.getElementById('vista').innerHTML = '<div class="tarjeta" style="max-width:420px;margin:30px auto"><h2>Clave del equipo</h2>' +
+    '<p class="suave">' + (ya ? 'La clave guardada no es correcta. ' : '') + 'Pedísela a Gerónimo. Se pide una sola vez en cada teléfono o computadora.</p>' +
+    '<input id="claveEq" type="password" autocomplete="off" placeholder="Clave"><div style="margin-top:10px"><button class="btn ancho" onclick="guardarClave()">Entrar</button></div></div>';
+  document.getElementById('nav').style.display = 'none';
+}
+function guardarClave() {
+  var v = document.getElementById('claveEq').value.trim();
+  if (!v) return;
+  guardarLocal('folium_clave', v); document.getElementById('vista').innerHTML = '<div class="cargando">Cargando…</div>'; recargar();
+}
+function guardarLocal(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function leerLocal(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+function recargar() {
+  return api('getDatos').then(function (d) { S.datos = d; render(); })
+    .catch(function (e) { if (/clave del equipo/i.test(e)) return; document.getElementById('vista').innerHTML = '<div class="aviso rojo">No pude cargar los datos: ' + esc(e) + '</div>'; });
+}
+
+/* =================================================================== */
+/* Utilidades                                                           */
+/* =================================================================== */
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function num(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  var s = String(v == null ? '' : v).replace(/[^\d,.\-]/g, '');
+  if (!s) return 0;
+  if (s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.');
+  else if ((s.match(/\./g) || []).length > 1) s = s.replace(/\./g, '');
+  else if (/^\-?\d{1,3}\.\d{3}$/.test(s)) s = s.replace('.', '');
+  var n = parseFloat(s); return isFinite(n) ? n : 0;
+}
+function plata(n, moneda) {
+  if (n == null || isNaN(n)) return '—';
+  var s = Math.round(n).toLocaleString('es-UY');
+  return (moneda === 'USD' ? 'US$ ' : '$ ') + s;
+}
+function pct(n) { return (n == null || !isFinite(n)) ? '—' : Math.round(n) + ' %'; }
+function hoy() { var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+function fechaCorta(s) { if (!s) return ''; var p = String(s).slice(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0].slice(2) : s; }
+function verdad(v) { return v === true || v === 'TRUE' || v === 'true'; }
+function toast(t) { var el = document.getElementById('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(function () { el.style.display = 'none'; }, 3200); }
+function porId(lista, id) { for (var i = 0; i < lista.length; i++) if (lista[i].id === id) return lista[i]; return null; }
+function estadoPct(p) { return p > 100 ? 'rojo' : p >= 80 ? 'amarillo' : 'ok'; }
+
+function esEmpresa(o) { return !!o && o.tipo === 'Empresa'; }
+function obraEmpresa() { return S.datos.obras.filter(esEmpresa)[0] || null; }
+function nombreObra(o) { return !o ? '?' : esEmpresa(o) ? '🏢 Empresa' : o.nombre; }
+function mesActual() { return hoy().slice(0, 7); }
+function mesDe(g) { return String(g.fecha || '').slice(0, 7); }
+function nombreMes(m) { var n = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre']; var p = String(m).split('-'); return p.length === 2 ? n[+p[1] - 1] + ' ' + p[0] : m; }
+function mesMas(m, k) { var p = m.split('-'), d = new Date(+p[0], +p[1] - 1 + k, 1); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+function selectorMes(valor, onchange) {
+  return '<div class="mesnav"><button onclick="' + onchange + '(mesMas(\'' + valor + '\',-1))">‹</button>' +
+    '<input type="month" value="' + valor + '" onchange="' + onchange + '(this.value||mesActual())">' +
+    '<button onclick="' + onchange + '(mesMas(\'' + valor + '\',1))">›</button></div>';
+}
+function cantArchivos(gid) { var v = {}; S.datos.archivos.forEach(function (f) { if (f.gastoId === gid) v[f.fileId] = 1; }); return Object.keys(v).length; }
+
+/* =================================================================== */
+/* Cálculos                                                             */
+/* =================================================================== */
+/** Convierte un monto entre $ y US$. tc = pesos por dólar. Devuelve NaN si falta el tipo de cambio. */
+function conv(monto, de, a, tc) {
+  if (de === a) return monto;
+  tc = num(tc);
+  if (!(tc > 0)) return NaN;
+  return de === 'USD' ? monto * tc : monto / tc;
+}
+
+/** Costo real para la empresa: si la factura es a RUT el IVA se recupera, si no el IVA es costo. */
+function costoReal(g) { return verdad(g.ivaRecuperable) ? num(g.neto) : num(g.total); }
+
+function calcObra(obra, d, mes) {
+  var mon = obra.moneda || 'UYU';
+  var items = d.items.filter(function (i) { return i.obraId === obra.id; })
+    .sort(function (a, b) { return num(a.orden) - num(b.orden); });
+  var filas = items.map(function (it) {
+    var sub = num(it.cantidad) * num(it.precioUnit);
+    var p = conv(sub, it.moneda || mon, mon, obra.tipoCambio);
+    return { item: it, presup: p, ivaPresup: p * num(it.ivaTasa) / 100, gastado: 0, gastos: [] };
+  });
+  var porItem = {}; filas.forEach(function (f) { porItem[f.item.id] = f; });
+  var sinAsignar = { gastado: 0, gastos: [] };
+  var r = { obra: obra, moneda: mon, filas: filas, sinAsignar: sinAsignar, presupuesto: 0, ivaPresupuesto: 0,
+            gastado: 0, totalPagadoBruto: 0, iva: 0, ivaRecuperable: 0, ivaPerdido: 0,
+            pendientes: 0, montoPendiente: 0, faltaTC: false, gastos: [], cantGastos: 0 };
+  filas.forEach(function (f) { if (isNaN(f.presup)) r.faltaTC = true; else { r.presupuesto += f.presup; r.ivaPresupuesto += f.ivaPresup; } });
+
+  var asig = d.asignaciones.filter(function (a) { return a.obraId === obra.id; });
+  var vistos = {};
+  asig.forEach(function (a) {
+    var g = porId(d.gastos, a.gastoId);
+    if (!g) return;
+    if (mes && mesDe(g) !== mes) return;
+    if (!vistos[g.id]) { vistos[g.id] = true; r.gastos.push(g); }
+    if (verdad(g.anulado)) return;
+    var parte = num(a.porcentaje) / 100;
+    var tc = g.tipoCambio || obra.tipoCambio;
+    var costo = conv(costoReal(g) * parte, g.moneda, mon, tc);
+    var bruto = conv(num(g.total) * parte, g.moneda, mon, tc);
+    var iva = conv(num(g.iva) * parte, g.moneda, mon, tc);
+    if (isNaN(costo)) { r.faltaTC = true; return; }
+    r.gastado += costo; r.totalPagadoBruto += bruto; r.iva += iva;
+    if (verdad(g.ivaRecuperable)) r.ivaRecuperable += iva; else r.ivaPerdido += iva;
+    if (!verdad(g.pagado)) { r.montoPendiente += bruto; }
+    var destino = a.itemId && porItem[a.itemId] ? porItem[a.itemId] : sinAsignar;
+    destino.gastado += costo;
+    destino.gastos.push({ gasto: g, parte: parte, costo: costo });
+  });
+  r.pendientes = r.gastos.filter(function (g) { return !verdad(g.anulado) && !verdad(g.pagado); }).length;
+  r.cantGastos = r.gastos.filter(function (g) { return !verdad(g.anulado); }).length;
+  r.gastos.sort(function (a, b) { return String(b.fecha + b.creado).localeCompare(String(a.fecha + a.creado)); });
+  r.disponible = r.presupuesto - r.gastado;
+  r.porcentaje = r.presupuesto > 0 ? r.gastado / r.presupuesto * 100 : null;
+  filas.forEach(function (f) { f.porcentaje = f.presup > 0 ? f.gastado / f.presup * 100 : (f.gastado > 0 ? Infinity : 0); });
+  return r;
+}
+
+/* =================================================================== */
+/* Usuario                                                              */
+/* =================================================================== */
+function pedirUsuario() {
+  var lista = (S.datos && S.datos.usuarios) || USUARIOS_BASE;
+  abrirModal('<h2>¿Quién está cargando?</h2><p class="suave">Queda registrado en cada gasto, pago o archivo que subas desde este teléfono o computadora.</p>' +
+    '<div class="usuarios">' + lista.map(function (u) { return '<button onclick="elegirUsuario(\'' + esc(u) + '\')">' + esc(u) + '</button>'; }).join('') +
+    '<button onclick="document.getElementById(\'otroBox\').style.display=\'block\';document.getElementById(\'otroNombre\').focus()">Otro…</button></div>' +
+    '<div id="otroBox" style="display:none"><label>Nombre (por ejemplo: encargado de cuadrilla)</label>' +
+    '<input id="otroNombre" placeholder="Nombre y apellido"><div style="margin-top:10px"><button class="btn ancho" onclick="elegirUsuario(document.getElementById(\'otroNombre\').value)">Entrar</button></div></div>',
+    !!S.user);
+}
+function elegirUsuario(u) {
+  u = String(u || '').trim();
+  if (!u) { toast('Escribí un nombre'); return; }
+  S.user = u; guardarLocal('folium_usuario', u); cerrarModal(); render();
+}
+
+/* =================================================================== */
+/* Render principal                                                     */
+/* =================================================================== */
+function render() {
+  if (!S.datos) return;
+  var chip = document.getElementById('chipUser');
+  chip.style.display = S.user ? 'block' : 'none';
+  chip.textContent = S.user ? '👤 ' + S.user : '';
+  renderNav();
+  var v = document.getElementById('vista');
+  var vistas = { obra: vistaObra, empresa: vistaEmpresa, pendientes: vistaPendientes, todos: vistaTodos, resumen: vistaResumen };
+  v.innerHTML = (S.vista === 'obra' && !S.obraId) ? vistaObras() : (vistas[S.vista] || vistaObras)();
+  var bi = document.getElementById('barraInf'); if (bi && S.vista !== 'pendientes') bi.remove();
+  if (S.vista === 'pendientes') barraPago();
+  if (!S.user) pedirUsuario();
+}
+function renderNav() {
+  var nav = document.getElementById('nav');
+  nav.style.display = 'flex';
+  var pend = S.datos.gastos.filter(function (g) { return !verdad(g.anulado) && !verdad(g.pagado); }).length;
+  var b = function (k, t, extra) { return '<button class="' + ((S.vista === k || (k === 'obras' && S.vista === 'obra')) ? 'activo' : '') + '" onclick="ir(\'' + k + '\')">' + t + (extra || '') + '</button>'; };
+  nav.innerHTML = '<button class="foto" onclick="document.getElementById(\'camRapida\').click()">📷 Boleta</button>' +
+    b('obras', 'Obras') + b('empresa', '🏢 Empresa') + b('pendientes', 'A pagar', pend ? '<span class="badge">' + pend + '</span>' : '') +
+    b('todos', 'Gastos') + b('resumen', 'Resumen del mes') + '<button onclick="formGasto()">+ Gasto sin foto</button>' +
+    '<input type="file" id="camRapida" accept="image/*" capture="environment" style="display:none" onchange="cargaRapida(this)">';
+}
+function ir(v, obraId) { S.vista = v; if (obraId) { S.obraId = obraId; S.tab = 'resumen'; } window.scrollTo(0, 0); render(); }
+
+/* ---------------- Lista de obras ---------------- */
+function vistaObras() {
+  var d = S.datos;
+  var obras = d.obras.filter(function (o) { return !esEmpresa(o) && (S.verCerradas || o.estado !== 'Cerrada'); });
+  var h = '<div class="entre"><h2>Obras ' + (S.verCerradas ? '(todas)' : 'activas') + '</h2>' +
+    '<button class="btn chico sec" onclick="formObra()">+ Nueva obra</button></div>';
+  if (!obras.length) h += '<div class="tarjeta suave">Todavía no hay obras. Creá la primera con “+ Nueva obra”.</div>';
+  obras.forEach(function (o) {
+    var c = calcObra(o, d), est = c.porcentaje == null ? 'gris' : estadoPct(c.porcentaje);
+    h += '<div class="tarjeta obra" onclick="ir(\'obra\',\'' + o.id + '\')">' +
+      '<div class="entre"><div><b>' + esc(o.nombre) + '</b><div class="suave">' + esc([o.cliente, o.tipo].filter(Boolean).join(' · ')) + '</div></div>' +
+      '<span class="etq ' + est + '">' + (c.porcentaje == null ? 'Sin presupuesto' : pct(c.porcentaje)) + '</span></div>' +
+      (c.porcentaje != null ? '<div class="barra ' + (est === 'ok' ? '' : est) + '"><i style="width:' + Math.min(c.porcentaje, 100) + '%"></i></div>' : '<div style="height:10px"></div>') +
+      '<div class="fila suave"><span>Gastado <b style="color:var(--texto)">' + plata(c.gastado, c.moneda) + '</b> de ' + plata(c.presupuesto, c.moneda) + '</span>' +
+      '<span>· ' + c.cantGastos + ' gasto' + (c.cantGastos === 1 ? '' : 's') + '</span>' +
+      (c.pendientes ? '<span class="etq amarillo">' + c.pendientes + ' sin pagar</span>' : '') +
+      (o.estado === 'Cerrada' ? '<span class="etq gris">Cerrada</span>' : '') + '</div></div>';
+  });
+  h += '<p><a href="#" onclick="S.verCerradas=!S.verCerradas;render();return false">' + (S.verCerradas ? 'Ocultar obras cerradas' : 'Ver también obras cerradas') + '</a>' +
+    ' · <a href="' + esc(d.planillaUrl) + '" target="_blank">Abrir la planilla</a></p>';
+  return h;
+}
+
+/* ---------------- Gastos comunes de la empresa ---------------- */
+function irMesEmpresa(m) { S.mes = m; render(); }
+function vistaEmpresa() {
+  var d = S.datos, e = obraEmpresa();
+  if (!e) return '<div class="cargando">Preparando la sección de empresa…</div>';
+  var mes = S.mes || mesActual(), c = calcObra(e, d, mes), m = 'UYU';
+  var h = '<div class="entre"><div><h2 style="margin-bottom:2px">🏢 Gastos comunes de la empresa</h2><div class="suave">Lo que no es de una obra puntual: combustible, herramientas, vehículos, oficina…</div></div></div>' +
+    '<div class="fila" style="margin:12px 0"><button class="btn" onclick="formGasto(\'' + e.id + '\')">+ Gasto de empresa</button>' +
+    '<button class="btn sec" onclick="formCategorias()">Categorías y topes</button>' + selectorMes(mes, 'irMesEmpresa') + '</div>';
+  if (c.porcentaje != null && c.porcentaje > 100) h += '<div class="aviso rojo"><b>Se pasó del tope mensual</b> en ' + plata(-c.disponible, m) + '.</div>';
+  h += '<div class="kpis">' +
+    '<div class="kpi"><span class="suave">Gastado en ' + nombreMes(mes) + ' · costo real</span><b>' + plata(c.gastado, m) + '</b>' + (c.presupuesto > 0 ? '<span class="suave">' + pct(c.porcentaje) + ' del tope</span>' : '') + '</div>' +
+    '<div class="kpi"><span class="suave">Total pagado (con IVA)</span><b>' + plata(c.totalPagadoBruto, m) + '</b></div>' +
+    '<div class="kpi verde"><span class="suave">IVA recuperable</span><b>' + plata(c.ivaRecuperable, m) + '</b></div>' +
+    '<div class="kpi ' + (c.ivaPerdido > 0 ? 'rojo' : '') + '"><span class="suave">IVA no recuperable</span><b>' + plata(c.ivaPerdido, m) + '</b></div>' +
+    '</div>';
+  var activas = c.filas.filter(function (f) { return f.presup > 0 || f.gastado > 0; });
+  h += '<h3>Por categoría · ' + nombreMes(mes) + '</h3><div class="tarjeta scroll"><table><thead><tr><th>Categoría</th><th class="n">Tope mensual</th><th class="n">Gastado</th><th class="n">Uso</th></tr></thead><tbody>';
+  if (!activas.length && !c.sinAsignar.gastado) h += '<tr><td colspan="4" class="suave">Sin gastos de empresa en este mes.</td></tr>';
+  activas.forEach(function (f) {
+    var est = f.presup > 0 ? estadoPct(f.porcentaje) : 'gris';
+    h += '<tr><td>' + esc(f.item.insumo) + '</td><td class="n">' + (f.presup > 0 ? plata(f.presup, m) : '<span class="suave">sin tope</span>') + '</td><td class="n">' + plata(f.gastado, m) + '</td>' +
+      '<td class="n">' + (f.presup > 0 ? '<span class="etq ' + est + '">' + pct(f.porcentaje) + '</span>' : '') + '</td></tr>';
+  });
+  if (c.sinAsignar.gastado) h += '<tr><td><i>Sin categoría</i></td><td class="n">—</td><td class="n">' + plata(c.sinAsignar.gastado, m) + '</td><td></td></tr>';
+  h += '<tr class="totales"><td>Total</td><td class="n">' + (c.presupuesto > 0 ? plata(c.presupuesto, m) : '—') + '</td><td class="n">' + plata(c.gastado, m) + '</td><td class="n">' + (c.presupuesto > 0 ? pct(c.porcentaje) : '') + '</td></tr></tbody></table></div>';
+  // Últimos 6 meses
+  var meses = []; for (var i = 5; i >= 0; i--) meses.push(mesMas(mes, -i));
+  var serie = meses.map(function (x) { return calcObra(e, d, x).gastado; }), max = Math.max.apply(null, serie.concat([1]));
+  h += '<h3>Últimos 6 meses</h3><div class="tarjeta">' + meses.map(function (x, i) {
+    return '<div class="fila" style="margin:4px 0;cursor:pointer" onclick="irMesEmpresa(\'' + x + '\')"><span style="width:110px" class="suave">' + nombreMes(x) + '</span>' +
+      '<div class="barra" style="flex:1;margin:0"><i style="width:' + (serie[i] / max * 100) + '%;background:' + (x === mes ? 'var(--verde)' : '#9fb8a4') + '"></i></div>' +
+      '<span style="width:100px;text-align:right">' + plata(serie[i], m) + '</span></div>';
+  }).join('') + '</div>';
+  h += '<h3>Gastos de ' + nombreMes(mes) + '</h3>' + (c.gastos.length ? '<div class="tarjeta">' + c.gastos.map(function (g) { return filaGasto(g, e); }).join('') + '</div>' : '<div class="tarjeta suave">No hay gastos de empresa este mes.</div>');
+  return h;
+}
+function formCategorias() {
+  var e = obraEmpresa();
+  var items = S.datos.items.filter(function (i) { return i.obraId === e.id; }).sort(function (a, b) { return num(a.orden) - num(b.orden); });
+  G = { cats: items.map(function (i) { return { id: i.id, insumo: i.insumo, tope: num(i.precioUnit) || '' }; }) };
+  renderCategorias();
+}
+function renderCategorias() {
+  abrirModal('<h2>Categorías de gastos de empresa</h2><p class="suave">El tope mensual es opcional: si lo ponés, la app avisa al llegar al 80 % y al pasarse.</p>' +
+    '<table><thead><tr><th>Categoría</th><th class="n">Tope mensual ($, sin IVA)</th><th></th></tr></thead><tbody>' +
+    G.cats.map(function (c, i) {
+      return '<tr><td><input value="' + esc(c.insumo) + '" oninput="G.cats[' + i + '].insumo=this.value"></td>' +
+        '<td><input inputmode="decimal" style="text-align:right" value="' + esc(c.tope) + '" placeholder="sin tope" oninput="G.cats[' + i + '].tope=this.value"></td>' +
+        '<td><button class="x" onclick="quitarCategoria(' + i + ')">✕</button></td></tr>';
+    }).join('') + '</tbody></table>' +
+    '<div class="fila" style="margin-top:10px"><button class="btn sec" onclick="G.cats.push({insumo:\'\',tope:\'\'});renderCategorias()">+ Categoría</button>' +
+    '<button class="btn" id="catGuardar" onclick="guardarCategorias()">Guardar</button></div>');
+}
+function quitarCategoria(i) {
+  var c = G.cats[i];
+  if (c.id && S.datos.asignaciones.some(function (a) { return a.itemId === c.id; }) && !confirm('Esta categoría tiene gastos. Si la quitás, esos gastos quedan "sin categoría". ¿Seguir?')) return;
+  G.cats.splice(i, 1); renderCategorias();
+}
+function guardarCategorias() {
+  var e = obraEmpresa(), b = document.getElementById('catGuardar'); b.disabled = true; b.textContent = 'Guardando…';
+  var items = G.cats.filter(function (c) { return String(c.insumo).trim(); }).map(function (c) {
+    return { id: c.id, rubro: 'Empresa', insumo: c.insumo, unidad: 'mes', cantidad: 1, precioUnit: num(c.tope), moneda: 'UYU', ivaTasa: 22 };
+  });
+  api('guardarPresupuesto', e.id, items, S.user).then(function () { cerrarModal(); toast('Categorías guardadas'); return recargar(); })
+    .catch(function (err) { toast('Error: ' + err); b.disabled = false; b.textContent = 'Guardar'; });
+}
+
+/* ---------------- Detalle de obra ---------------- */
+function vistaObra() {
+  var d = S.datos, o = porId(d.obras, S.obraId);
+  if (!o) { S.vista = 'obras'; return vistaObras(); }
+  if (esEmpresa(o)) { S.vista = 'empresa'; return vistaEmpresa(); }
+  var c = calcObra(o, d);
+  var t = function (k, txt) { return '<button class="' + (S.tab === k ? 'activo' : '') + '" onclick="S.tab=\'' + k + '\';render()">' + txt + '</button>'; };
+  var h = '<p><a href="#" onclick="ir(\'obras\');return false">← Obras</a></p>' +
+    '<div class="entre"><div><h2 style="margin-bottom:2px">' + esc(o.nombre) + '</h2><div class="suave">' + esc([o.cliente, o.tipo, o.moneda === 'USD' ? 'Presupuesto en US$' : 'Presupuesto en $', o.estado].filter(Boolean).join(' · ')) + '</div></div>' +
+    '<button class="btn chico sec" onclick="formObra(\'' + o.id + '\')">Editar</button></div>' +
+    '<div class="fila" style="margin:12px 0"><button class="btn" onclick="formGasto(\'' + o.id + '\')">+ Gasto en esta obra</button>' +
+    '<button class="btn sec" onclick="formArchivos(\'' + o.id + '\')">Subir foto / archivo</button></div>' +
+    '<div class="tabs">' + t('resumen', 'Resumen') + t('presupuesto', 'Presupuesto') + t('gastos', 'Gastos (' + c.cantGastos + ')') + t('archivos', 'Archivos') + '</div>';
+  if (S.tab === 'presupuesto') h += tabPresupuesto(o, c);
+  else if (S.tab === 'gastos') h += tabGastos(o, c);
+  else if (S.tab === 'archivos') h += tabArchivos(o);
+  else h += tabResumen(o, c);
+  return h;
+}
+
+function tabResumen(o, c) {
+  var m = c.moneda, h = '';
+  if (c.faltaTC) h += '<div class="aviso amarillo">Hay montos en otra moneda sin tipo de cambio. Cargá el tipo de cambio en la obra (Editar) o en el gasto para que entren en el cálculo.</div>';
+  if (!c.filas.length) h += '<div class="aviso info">Esta obra todavía no tiene presupuesto cargado. Andá a la pestaña <b>Presupuesto</b> para cargar el desglose de insumos.</div>';
+  if (c.porcentaje != null && c.porcentaje > 100) h += '<div class="aviso rojo"><b>Sobregasto:</b> se gastaron ' + plata(-c.disponible, m) + ' más de lo presupuestado en insumos.</div>';
+  else if (c.porcentaje != null && c.porcentaje >= 80) h += '<div class="aviso amarillo"><b>Atención:</b> ya se usó el ' + pct(c.porcentaje) + ' del presupuesto de insumos.</div>';
+  h += '<div class="kpis">' +
+    '<div class="kpi"><span class="suave">Presupuestado (sin IVA)</span><b>' + plata(c.presupuesto, m) + '</b></div>' +
+    '<div class="kpi"><span class="suave">Gastado · costo real</span><b>' + plata(c.gastado, m) + '</b><span class="suave">' + pct(c.porcentaje) + ' del presupuesto</span></div>' +
+    (c.presupuesto > 0 ? '<div class="kpi ' + (c.disponible < 0 ? 'rojo' : 'verde') + '"><span class="suave">' + (c.disponible < 0 ? 'Excedido' : 'Disponible') + '</span><b>' + plata(Math.abs(c.disponible), m) + '</b></div>'
+      : '<div class="kpi"><span class="suave">Disponible</span><b>—</b><span class="suave">falta cargar el presupuesto</span></div>') +
+    '<div class="kpi"><span class="suave">Pendiente de pago</span><b>' + plata(c.montoPendiente, m) + '</b><span class="suave">' + c.pendientes + ' gasto' + (c.pendientes === 1 ? '' : 's') + '</span></div>' +
+    '</div>';
+  h += '<div class="tarjeta"><b>IVA de las compras</b><div class="kpis" style="margin:10px 0 4px">' +
+    '<div class="kpi"><span class="suave">Total pagado (con IVA)</span><b>' + plata(c.totalPagadoBruto, m) + '</b></div>' +
+    '<div class="kpi"><span class="suave">IVA incluido</span><b>' + plata(c.iva, m) + '</b></div>' +
+    '<div class="kpi verde"><span class="suave">IVA recuperable (ahorro)</span><b>' + plata(c.ivaRecuperable, m) + '</b><span class="suave">compras con e-Factura a RUT</span></div>' +
+    '<div class="kpi ' + (c.ivaPerdido > 0 ? 'rojo' : '') + '"><span class="suave">IVA no recuperable</span><b>' + plata(c.ivaPerdido, m) + '</b><span class="suave">compras con ticket o sin comprobante</span></div>' +
+    '</div><div class="suave">El “costo real” descuenta el IVA solo cuando la compra se hizo con e-Factura a RUT de FOLIUM, porque ese IVA se descuenta después. Si fue con ticket de consumidor final, el IVA queda como costo.</div></div>';
+
+  if (c.filas.length || c.sinAsignar.gastos.length) {
+    h += '<h3>Presupuestado vs. gastado por insumo</h3><div class="tarjeta scroll"><table><thead><tr><th>Insumo</th><th class="n">Presup.</th><th class="n">Gastado</th><th class="n">Uso</th></tr></thead><tbody>';
+    c.filas.forEach(function (f) {
+      var est = f.presup > 0 ? estadoPct(f.porcentaje) : (f.gastado > 0 ? 'rojo' : 'gris');
+      h += '<tr><td>' + esc(f.item.insumo) + (f.item.rubro ? '<div class="suave">' + esc(f.item.rubro) + '</div>' : '') + '</td>' +
+        '<td class="n">' + plata(f.presup, m) + '</td><td class="n">' + plata(f.gastado, m) + '</td>' +
+        '<td class="n"><span class="etq ' + est + '">' + (f.presup > 0 ? pct(f.porcentaje) : (f.gastado > 0 ? 'Sin presup.' : '—')) + '</span></td></tr>';
+    });
+    if (c.sinAsignar.gastos.length) h += '<tr><td><i>Gastos sin asignar a un insumo</i><div class="suave">Suman al total de la obra</div></td><td class="n">—</td><td class="n">' + plata(c.sinAsignar.gastado, m) + '</td><td class="n"></td></tr>';
+    h += '<tr class="totales"><td>Total</td><td class="n">' + plata(c.presupuesto, m) + '</td><td class="n">' + plata(c.gastado, m) + '</td><td class="n">' + pct(c.porcentaje) + '</td></tr>';
+    h += '</tbody></table></div>';
+  }
+  if (o.notas) h += '<div class="tarjeta"><b>Notas de la obra</b><div style="white-space:pre-wrap;margin-top:6px">' + esc(o.notas) + '</div></div>';
+  if (o.carpetaUrl) h += '<p class="suave">Carpeta de Drive: <a href="' + esc(o.carpetaUrl) + '" target="_blank">abrir</a> (solo la ve el dueño de la cuenta)</p>';
+  return h;
+}
+
+/* ---------------- Presupuesto ---------------- */
+var EDIT = null; // copia de trabajo del presupuesto
+function tabPresupuesto(o, c) {
+  if (!EDIT || EDIT.obraId !== o.id) {
+    EDIT = { obraId: o.id, items: c.filas.map(function (f) { return Object.assign({}, f.item); }), sucio: false };
+  }
+  var m = o.moneda || 'UYU';
+  var h = '<div class="aviso info">Cargá los insumos tal como quedaron en el presupuesto aceptado, con precios <b>sin IVA</b>. La mano de obra no hace falta (no se compra), salvo que quieras controlarla también.</div>' +
+    '<div class="tarjeta scroll"><table class="pres"><thead><tr><th>Rubro</th><th>Insumo</th><th>Unidad</th><th class="n">Cant.</th><th class="n">Precio unit.</th><th>Mon.</th><th>IVA</th><th class="n">Subtotal</th><th></th></tr></thead><tbody>';
+  var total = 0;
+  EDIT.items.forEach(function (it, i) {
+    var sub = num(it.cantidad) * num(it.precioUnit);
+    var subObra = conv(sub, it.moneda || m, m, o.tipoCambio);
+    if (!isNaN(subObra)) total += subObra;
+    h += '<tr>' +
+      '<td><input value="' + esc(it.rubro) + '" placeholder="Plantas" oninput="editItem(' + i + ',\'rubro\',this.value)"></td>' +
+      '<td class="ins"><input value="' + esc(it.insumo) + '" placeholder="Pittosporum nana" oninput="editItem(' + i + ',\'insumo\',this.value)"></td>' +
+      '<td><input value="' + esc(it.unidad) + '" placeholder="u" style="width:60px" oninput="editItem(' + i + ',\'unidad\',this.value)"></td>' +
+      '<td><input value="' + esc(it.cantidad) + '" inputmode="decimal" style="width:70px;text-align:right" onchange="editItem(' + i + ',\'cantidad\',this.value,true)"></td>' +
+      '<td><input value="' + esc(it.precioUnit) + '" inputmode="decimal" style="width:95px;text-align:right" onchange="editItem(' + i + ',\'precioUnit\',this.value,true)"></td>' +
+      '<td><select style="width:70px" onchange="editItem(' + i + ',\'moneda\',this.value,true)"><option value="UYU"' + ((it.moneda || m) === 'UYU' ? ' selected' : '') + '>$</option><option value="USD"' + ((it.moneda || m) === 'USD' ? ' selected' : '') + '>US$</option></select></td>' +
+      '<td><select style="width:80px" onchange="editItem(' + i + ',\'ivaTasa\',this.value,true)">' + [['22', '22 %'], ['10', '10 %'], ['0', 'Exento']].map(function (x) { return '<option value="' + x[0] + '"' + (String(num(it.ivaTasa)) === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></td>' +
+      '<td class="n">' + plata(sub, it.moneda || m) + '</td>' +
+      '<td><button class="x" title="Quitar" onclick="quitarItem(' + i + ')">✕</button></td></tr>';
+  });
+  if (!EDIT.items.length) h += '<tr><td colspan="9" class="suave">Sin ítems todavía.</td></tr>';
+  h += '<tr class="totales"><td colspan="7">Total insumos sin IVA</td><td class="n">' + plata(total, m) + '</td><td></td></tr></tbody></table></div>' +
+    '<div class="fila"><button class="btn sec" onclick="agregarItem()">+ Agregar insumo</button>' +
+    '<button class="btn sec" onclick="formPegar()">Pegar desde planilla</button>' +
+    (S.datos.lecturaIA ? '<button class="btn sec" onclick="document.getElementById(\'presArchivo\').click()">✨ Leer presupuesto (PDF o foto)</button>' +
+      '<input type="file" id="presArchivo" accept="image/*,application/pdf" style="display:none" onchange="leerPresupuestoArchivo(this)">' : '') +
+    '<button class="btn" ' + (EDIT.sucio ? '' : 'disabled') + ' id="btnGuardarPres" onclick="guardarPres()">Guardar presupuesto</button></div>' +
+    (EDIT.sucio ? '<p class="aviso amarillo">Hay cambios sin guardar.</p>' : '');
+  return h;
+}
+function editItem(i, campo, valor, rerender) { EDIT.items[i][campo] = valor; EDIT.sucio = true; if (rerender) render(); else { var b = document.getElementById('btnGuardarPres'); if (b) b.disabled = false; } }
+function agregarItem() { var o = porId(S.datos.obras, S.obraId); EDIT.items.push({ rubro: '', insumo: '', unidad: 'u', cantidad: '', precioUnit: '', moneda: o.moneda || 'UYU', ivaTasa: 22 }); EDIT.sucio = true; render(); }
+function quitarItem(i) {
+  var it = EDIT.items[i];
+  if (it.id && S.datos.asignaciones.some(function (a) { return a.itemId === it.id; }) &&
+      !confirm('Este insumo tiene gastos asignados. Si lo quitás, esos gastos pasan a "sin asignar". ¿Seguir?')) return;
+  EDIT.items.splice(i, 1); EDIT.sucio = true; render();
+}
+function guardarPres() {
+  var b = document.getElementById('btnGuardarPres'); if (b) { b.disabled = true; b.textContent = 'Guardando…'; }
+  api('guardarPresupuesto', EDIT.obraId, EDIT.items, S.user).then(function (n) { EDIT = null; toast('Presupuesto guardado (' + n + ' ítems)'); return recargar(); })
+    .catch(function (e) { toast('Error: ' + e); if (b) { b.disabled = false; b.textContent = 'Guardar presupuesto'; } });
+}
+function formPegar() {
+  abrirModal('<h2>Pegar insumos</h2><p class="suave">Copiá filas desde Excel o Google Sheets y pegalas acá. Columnas en este orden: <b>Insumo · Unidad · Cantidad · Precio unitario sin IVA</b> (opcional: Rubro al final). También sirve separado por punto y coma.</p>' +
+    '<textarea id="pegado" style="min-height:180px" placeholder="Pittosporum nana&#9;u&#9;40&#9;380&#10;Corteza de pino 100 L&#9;bolsa&#9;30&#9;560&#9;Coberturas"></textarea>' +
+    '<label>Moneda de estos precios</label><select id="pegMon"><option value="UYU">$ (pesos)</option><option value="USD">US$ (dólares)</option></select>' +
+    '<label>IVA de estos ítems</label><select id="pegIva"><option value="22">22 %</option><option value="10">10 %</option><option value="0">Exento (plantas)</option></select>' +
+    '<div style="margin-top:12px"><button class="btn ancho" onclick="aplicarPegado()">Agregar al presupuesto</button></div>');
+}
+function aplicarPegado() {
+  var txt = document.getElementById('pegado').value, mon = document.getElementById('pegMon').value, iva = document.getElementById('pegIva').value;
+  var n = 0;
+  txt.split(/\r?\n/).forEach(function (l) {
+    if (!l.trim()) return;
+    var c = l.indexOf('\t') > -1 ? l.split('\t') : l.split(';');
+    c = c.map(function (x) { return x.trim(); });
+    if (!c[0] || /^insumo$/i.test(c[0])) return;
+    EDIT.items.push({ insumo: c[0], unidad: c[1] || 'u', cantidad: num(c[2]) || 1, precioUnit: num(c[3]), moneda: mon, ivaTasa: iva, rubro: c[4] || '' });
+    n++;
+  });
+  EDIT.sucio = true; cerrarModal(); render(); toast(n + ' ítems agregados. Revisá y guardá.');
+}
+
+function leerPresupuestoArchivo(input) {
+  var f = input.files && input.files[0]; input.value = '';
+  if (!f) return;
+  abrirModal('<h2>Leyendo el presupuesto…</h2><p><span class="girando"></span>Puede tardar unos segundos si el PDF es largo.</p>', false);
+  prepararArchivo(f, 'Presupuesto').then(function (a) { return api('leerPresupuesto', { mime: a.mime, data: a.data }); })
+    .then(function (r) {
+      if (!r.lineas.length) { abrirModal('<div class="aviso amarillo">No encontré líneas de presupuesto en el archivo. ' + esc(r.observaciones) + '</div>'); return; }
+      G = { lineasPres: r.lineas };
+      abrirModal('<h2>Presupuesto leído</h2><p class="suave">' + r.lineas.length + ' líneas' + (r.observaciones ? ' · ' + esc(r.observaciones) : '') + '. Destildá lo que no quieras controlar (por ejemplo, la mano de obra).</p>' +
+        '<div class="scroll"><table><thead><tr><th></th><th>Insumo</th><th class="n">Cant.</th><th class="n">Unit. s/IVA</th><th class="n">Subtotal</th></tr></thead><tbody>' +
+        r.lineas.map(function (l, i) {
+          return '<tr><td><input type="checkbox" style="width:18px" id="lp' + i + '"' + (/mano de obra/i.test(l.rubro) ? '' : ' checked') + '></td><td>' + esc(l.insumo) + '<div class="suave">' + esc(l.rubro) + ' · IVA ' + (l.ivaTasa ? l.ivaTasa + ' %' : 'exento') + '</div></td>' +
+            '<td class="n">' + esc(l.cantidad) + ' ' + esc(l.unidad) + '</td><td class="n">' + plata(l.precioUnit, l.moneda) + '</td><td class="n">' + plata(l.cantidad * l.precioUnit, l.moneda) + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<div style="margin-top:12px"><button class="btn ancho" onclick="aplicarPresLeido()">Agregar al presupuesto</button></div>');
+    }).catch(function (e) { abrirModal('<div class="aviso rojo">No pude leer el presupuesto: ' + esc(e) + '</div>'); });
+}
+function aplicarPresLeido() {
+  var n = 0;
+  G.lineasPres.forEach(function (l, i) { var c = document.getElementById('lp' + i); if (c && c.checked) { EDIT.items.push(l); n++; } });
+  EDIT.sucio = true; cerrarModal(); render(); toast(n + ' ítems agregados. Revisá y tocá "Guardar presupuesto".');
+}
+
+/* ---------------- Gastos de la obra ---------------- */
+function tabGastos(o, c) {
+  if (!c.gastos.length) return '<div class="tarjeta suave">Todavía no hay gastos cargados en esta obra.</div>';
+  return '<div class="tarjeta">' + c.gastos.map(function (g) { return filaGasto(g, o); }).join('') + '</div>';
+}
+function filaGasto(g, obraContexto, conCheck) {
+  var asig = S.datos.asignaciones.filter(function (a) { return a.gastoId === g.id; });
+  var parte = '';
+  if (obraContexto && asig.length > 1) {
+    var a = asig.filter(function (x) { return x.obraId === obraContexto.id; }).reduce(function (s, x) { return s + num(x.porcentaje); }, 0);
+    if (a < 100) parte = '<span class="etq gris">Compartido · ' + Math.round(a) + ' % acá</span> ';
+  }
+  var obras = asig.map(function (a) { return nombreObra(porId(S.datos.obras, a.obraId)); })
+    .filter(function (v, i, arr) { return arr.indexOf(v) === i; });
+  var nArch = cantArchivos(g.id);
+  var cuerpo = '<div><b>' + esc(g.proveedor || g.descripcion || 'Gasto') + '</b>' +
+    '<div class="suave">' + fechaCorta(g.fecha) + ' · compró ' + esc(g.compradoPor) + (obraContexto ? '' : ' · ' + esc(obras.join(' + '))) + (nArch ? ' · 📎' + nArch : ' · <span style="color:var(--rojo)">sin foto</span>') + '</div>' +
+    (g.descripcion && g.proveedor ? '<div class="suave">' + esc(String(g.descripcion).slice(0, 90)) + '</div>' : '') +
+    '<div style="margin-top:3px">' + parte + (verdad(g.anulado) ? '<span class="etq gris">Anulado</span>' : verdad(g.pagado) ? '<span class="etq ok">Pagado · ' + esc(g.medioPago) + '</span>' : '<span class="etq amarillo">Pendiente de pago</span>') +
+    (verdad(g.ivaRecuperable) ? ' <span class="etq ok">IVA recuperable</span>' : '') + '</div></div>';
+  var monto = '<div class="n" style="text-align:right;white-space:nowrap"><b>' + plata(num(g.total), g.moneda) + '</b><div class="suave">IVA ' + plata(num(g.iva), g.moneda) + '</div></div>';
+  if (conCheck) {
+    return '<div class="gasto sel"><input type="checkbox" ' + (S.sel[g.id] ? 'checked' : '') + ' onclick="event.stopPropagation();S.sel[\'' + g.id + '\']=this.checked;barraPago()">' +
+      '<div onclick="verGasto(\'' + g.id + '\')" style="cursor:pointer">' + cuerpo + '</div><div onclick="verGasto(\'' + g.id + '\')" style="cursor:pointer">' + monto + '</div></div>';
+  }
+  return '<div class="gasto ' + (verdad(g.anulado) ? 'anulado' : '') + '" onclick="verGasto(\'' + g.id + '\')">' + cuerpo + monto + '</div>';
+}
+/* ---------------- Archivos de la obra ---------------- */
+function tabArchivos(o) {
+  var arch = S.datos.archivos.filter(function (f) { return f.obraId === o.id; })
+    .sort(function (a, b) { return String(b.creado).localeCompare(String(a.creado)); });
+  if (!arch.length) return '<div class="tarjeta suave">No hay archivos todavía. Podés subir el presupuesto aceptado, remitos o fotos de avance.</div>';
+  return '<div class="tarjeta">' + arch.map(function (f) {
+    var g = f.gastoId ? porId(S.datos.gastos, f.gastoId) : null;
+    return '<div class="gasto" onclick="verArchivo(\'' + f.id + '\')"><div><b>' + esc(f.tipo) + '</b> ' + (g ? '· ' + esc(g.proveedor || g.descripcion) : '') +
+      '<div class="suave">' + esc(f.nombre) + '</div><div class="suave">Subió ' + esc(f.subidoPor) + ' · ' + esc(f.creado) + '</div></div><div>' + ((f.mime || '').indexOf('pdf') > -1 ? '📄' : '🖼️') + '</div></div>';
+  }).join('') + '</div>';
+}
+
+/* ---------------- A pagar (agrupado por proveedor) ---------------- */
+function claveProv(g) { return String(g.proveedor || 'Sin proveedor').trim().toLowerCase().replace(/\s+/g, ' '); }
+function vistaPendientes() {
+  var g = S.datos.gastos.filter(function (x) { return !verdad(x.anulado) && !verdad(x.pagado); })
+    .sort(function (a, b) { return String(a.fecha).localeCompare(String(b.fecha)); });
+  Object.keys(S.sel).forEach(function (id) { if (!g.some(function (x) { return x.id === id; })) delete S.sel[id]; });
+  var tot = { UYU: 0, USD: 0 }; g.forEach(function (x) { tot[x.moneda === 'USD' ? 'USD' : 'UYU'] += num(x.total); });
+  var h = '<h2>A pagar</h2>';
+  if (!g.length) return h + '<div class="tarjeta suave">No hay gastos pendientes de pago. 🎉</div>';
+  h += '<div class="kpis"><div class="kpi"><span class="suave">Total en pesos</span><b>' + plata(tot.UYU, 'UYU') + '</b></div>' +
+    (tot.USD ? '<div class="kpi"><span class="suave">Total en dólares</span><b>' + plata(tot.USD, 'USD') + '</b></div>' : '') +
+    '<div class="kpi"><span class="suave">Gastos</span><b>' + g.length + '</b></div>' +
+    '<div class="kpi ' + (g.some(function (x) { return !cantArchivos(x.id); }) ? 'rojo' : '') + '"><span class="suave">Sin foto de boleta</span><b>' + g.filter(function (x) { return !cantArchivos(x.id); }).length + '</b></div></div>';
+  h += '<p class="suave">Marcá los gastos que se pagan juntos (por ejemplo, una transferencia al mismo proveedor) y confirmalos de una vez.</p>';
+  var grupos = {}, orden = [];
+  g.forEach(function (x) { var k = claveProv(x); if (!grupos[k]) { grupos[k] = []; orden.push(k); } grupos[k].push(x); });
+  h += '<div class="tarjeta">' + orden.map(function (k) {
+    var lista = grupos[k], t = { UYU: 0, USD: 0 };
+    lista.forEach(function (x) { t[x.moneda === 'USD' ? 'USD' : 'UYU'] += num(x.total); });
+    var ids = lista.map(function (x) { return x.id; });
+    return '<div class="grupo"><div class="cab"><span>' + esc(lista[0].proveedor || 'Sin proveedor') + ' <span class="suave">(' + lista.length + ')</span></span>' +
+      '<span>' + [t.UYU ? plata(t.UYU, 'UYU') : '', t.USD ? plata(t.USD, 'USD') : ''].filter(Boolean).join(' + ') +
+      ' <button class="btn chico sec" onclick="selGrupo(' + esc(JSON.stringify(ids)) + ')">Marcar todos</button></span></div>' +
+      lista.map(function (x) { return filaGasto(x, null, true); }).join('') + '</div>';
+  }).join('') + '</div>';
+  return h;
+}
+function selGrupo(ids) { var todos = ids.every(function (id) { return S.sel[id]; }); ids.forEach(function (id) { S.sel[id] = !todos; }); render(); }
+function seleccionados() { return Object.keys(S.sel).filter(function (k) { return S.sel[k]; }).map(function (id) { return porId(S.datos.gastos, id); }).filter(Boolean); }
+function barraPago() {
+  var sel = seleccionados(), el = document.getElementById('barraInf');
+  if (!sel.length || S.vista !== 'pendientes') { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'barraInf'; el.className = 'barra-inf'; document.body.appendChild(el); }
+  var t = { UYU: 0, USD: 0 }; sel.forEach(function (x) { t[x.moneda === 'USD' ? 'USD' : 'UYU'] += num(x.total); });
+  el.innerHTML = '<div><b>' + sel.length + ' seleccionado' + (sel.length === 1 ? '' : 's') + '</b><div class="suave">' + [t.UYU ? plata(t.UYU, 'UYU') : '', t.USD ? plata(t.USD, 'USD') : ''].filter(Boolean).join(' + ') + '</div></div>' +
+    '<div class="fila"><button class="btn chico sec" onclick="S.sel={};render()">Limpiar</button><button class="btn" onclick="formPagoVarios()">Pagar seleccionados</button></div>';
+}
+function formPagoVarios() {
+  var sel = seleccionados(); if (!sel.length) return;
+  var t = { UYU: 0, USD: 0 }; sel.forEach(function (x) { t[x.moneda === 'USD' ? 'USD' : 'UYU'] += num(x.total); });
+  G = { archivos: [] };
+  abrirModal('<h2>Pagar ' + sel.length + ' gasto' + (sel.length === 1 ? '' : 's') + '</h2>' +
+    '<p>' + sel.map(function (x) { return esc(x.proveedor || x.descripcion) + ' · ' + plata(num(x.total), x.moneda); }).join('<br>') + '</p>' +
+    '<p><b>Total: ' + [t.UYU ? plata(t.UYU, 'UYU') : '', t.USD ? plata(t.USD, 'USD') : ''].filter(Boolean).join(' + ') + '</b></p>' +
+    '<div class="dos"><div><label>Medio de pago</label><select id="pMedio">' + MEDIOS_PAGO.map(function (m) { return '<option>' + m + '</option>'; }).join('') + '</select></div>' +
+    '<div><label>Fecha de pago</label><input type="date" id="pFecha" value="' + hoy() + '"></div></div>' +
+    '<label>Pagó</label><input id="pPor" value="Marcos">' +
+    '<label>Captura de la transferencia (una sola para todos)</label><input type="file" accept="image/*,application/pdf" multiple onchange="agregarArchivosPago(this)">' +
+    '<div class="miniaturas" id="pMinis"></div>' +
+    '<div style="margin-top:14px"><button class="btn ancho" id="pGuardar" onclick="guardarPagoVarios()">Confirmar pago</button></div>');
+}
+function guardarPagoVarios() {
+  var ids = seleccionados().map(function (x) { return x.id; });
+  var b = document.getElementById('pGuardar'); b.disabled = true; b.textContent = 'Guardando…';
+  api('pagarVarios', ids, { medioPago: document.getElementById('pMedio').value, fechaPago: document.getElementById('pFecha').value, pagadoPor: document.getElementById('pPor').value },
+    G.archivos.map(function (a) { return { tipo: 'Transferencia', mime: a.mime, data: a.data }; }), S.user)
+    .then(function (n) { S.sel = {}; cerrarModal(); toast(n + ' gasto(s) marcados como pagados'); return recargar(); })
+    .catch(function (e) { toast('Error: ' + e); b.disabled = false; b.textContent = 'Confirmar pago'; });
+}
+
+/* ---------------- Todos los gastos: buscador y filtros ---------------- */
+function filtrarGastos() {
+  var f = S.f, q = f.q.trim().toLowerCase();
+  return S.datos.gastos.filter(function (g) {
+    if (f.mes && mesDe(g) !== f.mes) return false;
+    if (f.persona && g.compradoPor !== f.persona) return false;
+    if (f.estado === 'pendientes' && (verdad(g.pagado) || verdad(g.anulado))) return false;
+    if (f.estado === 'pagados' && (!verdad(g.pagado) || verdad(g.anulado))) return false;
+    if (f.estado === 'sinfoto' && (cantArchivos(g.id) || verdad(g.anulado))) return false;
+    if (f.estado === 'anulados' && !verdad(g.anulado)) return false;
+    if (f.estado !== 'anulados' && f.estado !== '' && verdad(g.anulado)) return false;
+    if (f.obra && !S.datos.asignaciones.some(function (a) { return a.gastoId === g.id && a.obraId === f.obra; })) return false;
+    if (q && [g.proveedor, g.descripcion, g.notas, g.nroComprobante, g.compradoPor, g.total].join(' ').toLowerCase().indexOf(q) === -1) return false;
+    return true;
+  }).sort(function (a, b) { return String(b.fecha + b.creado).localeCompare(String(a.fecha + a.creado)); });
+}
+function setFiltro(k, v) { S.f[k] = v; render(); if (k === 'q') { var el = document.getElementById('fq'); if (el) { el.focus(); el.setSelectionRange(v.length, v.length); } } }
+function vistaTodos() {
+  var f = S.f, g = filtrarGastos();
+  var personas = S.datos.gastos.map(function (x) { return x.compradoPor; }).filter(function (v, i, arr) { return v && arr.indexOf(v) === i; });
+  var obras = S.datos.obras.slice().sort(function (a, b) { return esEmpresa(a) ? -1 : esEmpresa(b) ? 1 : String(a.nombre).localeCompare(b.nombre); });
+  var sel = function (k, ops) { return '<select onchange="setFiltro(\'' + k + '\',this.value)">' + ops.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (f[k] === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'; };
+  var h = '<div class="entre"><h2>Gastos</h2><button class="btn chico sec" onclick="descargarCSV()">Descargar CSV</button></div>' +
+    '<div class="filtros"><input type="search" id="fq" placeholder="Buscar proveedor, producto, n.º…" value="' + esc(f.q) + '" oninput="setFiltro(\'q\',this.value)">' +
+    '<input type="month" value="' + esc(f.mes) + '" onchange="setFiltro(\'mes\',this.value)" title="Mes">' +
+    sel('obra', [['', 'Todas las obras']].concat(obras.map(function (o) { return [o.id, nombreObra(o)]; }))) +
+    sel('persona', [['', 'Todas las personas']].concat(personas.map(function (p) { return [p, p]; }))) +
+    sel('estado', [['', 'Todos'], ['pendientes', 'A pagar'], ['pagados', 'Pagados'], ['sinfoto', 'Sin foto'], ['anulados', 'Anulados']]) + '</div>';
+  var t = { UYU: 0, USD: 0 }; g.forEach(function (x) { if (!verdad(x.anulado)) t[x.moneda === 'USD' ? 'USD' : 'UYU'] += num(x.total); });
+  h += '<p class="suave">' + g.length + ' gasto' + (g.length === 1 ? '' : 's') + ' · ' + [plata(t.UYU, 'UYU'), t.USD ? plata(t.USD, 'USD') : ''].filter(Boolean).join(' + ') +
+    (f.q || f.mes || f.obra || f.persona || f.estado ? ' · <a href="#" onclick="S.f={q:\'\',mes:\'\',obra:\'\',persona:\'\',estado:\'\'};render();return false">limpiar filtros</a>' : '') + '</p>';
+  if (!g.length) return h + '<div class="tarjeta suave">No hay gastos con esos filtros.</div>';
+  return h + '<div class="tarjeta">' + g.slice(0, 300).map(function (x) { return filaGasto(x, null); }).join('') + '</div>' +
+    (g.length > 300 ? '<p class="suave">Se muestran los 300 más recientes. Usá los filtros o descargá el CSV.</p>' : '');
+}
+function descargarCSV() {
+  var g = filtrarGastos();
+  var col = ['Fecha', 'Proveedor', 'RUT proveedor', 'N.º comprobante', 'Qué se compró', 'Compró', 'Cargó', 'Moneda', 'Total con IVA', 'IVA', 'Neto sin IVA',
+             'Comprobante', 'IVA recuperable', 'Pagado', 'Medio de pago', 'Fecha de pago', 'Obras / categorías', 'Fotos', 'Anulado', 'Notas'];
+  var dec = function (n) { return String(Math.round(num(n) * 100) / 100).replace('.', ','); };
+  var filas = g.map(function (x) {
+    var rep = S.datos.asignaciones.filter(function (a) { return a.gastoId === x.id; }).map(function (a) {
+      var o = porId(S.datos.obras, a.obraId), it = a.itemId ? porId(S.datos.items, a.itemId) : null;
+      return nombreObra(o).replace('🏢 ', '') + (it ? ' / ' + it.insumo : '') + ' ' + num(a.porcentaje) + '%';
+    }).join(' | ');
+    return [x.fecha, x.proveedor, x.rutProveedor, x.nroComprobante, x.descripcion, x.compradoPor, x.cargadoPor, x.moneda, dec(x.total), dec(x.iva), dec(x.neto),
+            x.comprobante, verdad(x.ivaRecuperable) ? 'Sí' : 'No', verdad(x.pagado) ? 'Sí' : 'No', x.medioPago, x.fechaPago, rep, cantArchivos(x.id), verdad(x.anulado) ? 'Sí' : 'No', x.notas];
+  });
+  var csv = '\ufeff' + [col].concat(filas).map(function (r) { return r.map(function (v) { v = String(v == null ? '' : v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';'); }).join('\r\n');
+  var nombre = 'gastos-folium' + (S.f.mes ? '-' + S.f.mes : '') + '.csv';
+  try {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('CSV descargado (se abre con Excel)');
+  } catch (e) {
+    abrirModal('<h2>Copiar CSV</h2><p class="suave">Tu navegador no permitió la descarga. Copiá el texto y pegalo en Excel o Sheets.</p><textarea style="min-height:300px">' + esc(csv) + '</textarea>');
+  }
+}
+
+/* ---------------- Resumen del mes ---------------- */
+function irMesResumen(m) { S.mesRes = m; render(); }
+function vistaResumen() {
+  var d = S.datos, mes = S.mesRes || mesActual();
+  var gMes = d.gastos.filter(function (g) { return mesDe(g) === mes && !verdad(g.anulado); });
+  var h = '<div class="entre"><h2>Resumen de ' + nombreMes(mes) + '</h2>' + selectorMes(mes, 'irMesResumen') + '</div>';
+  if (!gMes.length) return h + '<div class="tarjeta suave">No hay gastos cargados en ' + nombreMes(mes) + '.</div>';
+  var t = { UYU: { total: 0, iva: 0, rec: 0, per: 0, costo: 0, pend: 0 }, USD: { total: 0, iva: 0, rec: 0, per: 0, costo: 0, pend: 0 } };
+  gMes.forEach(function (g) {
+    var x = t[g.moneda === 'USD' ? 'USD' : 'UYU'];
+    x.total += num(g.total); x.iva += num(g.iva); x.costo += costoReal(g);
+    if (verdad(g.ivaRecuperable)) x.rec += num(g.iva); else x.per += num(g.iva);
+    if (!verdad(g.pagado)) x.pend += num(g.total);
+  });
+  var dos = function (k) { return plata(t.UYU[k], 'UYU') + (t.USD.total ? '<div class="suave">+ ' + plata(t.USD[k], 'USD') + '</div>' : ''); };
+  var sinFoto = gMes.filter(function (g) { return !cantArchivos(g.id); });
+  var conTicket = gMes.filter(function (g) { return !verdad(g.ivaRecuperable) && num(g.iva) > 0; });
+  h += '<div class="kpis">' +
+    '<div class="kpi"><span class="suave">Total comprado (con IVA)</span><b>' + dos('total') + '</b><span class="suave">' + gMes.length + ' gastos</span></div>' +
+    '<div class="kpi"><span class="suave">Costo real</span><b>' + dos('costo') + '</b></div>' +
+    '<div class="kpi verde"><span class="suave">IVA recuperable (e-Facturas a RUT)</span><b>' + dos('rec') + '</b></div>' +
+    '<div class="kpi ' + (t.UYU.per + t.USD.per > 0 ? 'rojo' : '') + '"><span class="suave">IVA perdido (tickets)</span><b>' + dos('per') + '</b><span class="suave">' + conTicket.length + ' compras sin factura a RUT</span></div>' +
+    '<div class="kpi"><span class="suave">Falta pagar</span><b>' + dos('pend') + '</b></div>' +
+    '</div>';
+  if (sinFoto.length) h += '<div class="aviso amarillo"><b>' + sinFoto.length + ' gasto' + (sinFoto.length === 1 ? '' : 's') + ' sin foto de boleta:</b> ' +
+    sinFoto.slice(0, 8).map(function (g) { return '<a href="#" onclick="verGasto(\'' + g.id + '\');return false">' + esc(g.proveedor || g.descripcion) + ' (' + esc(g.compradoPor) + ')</a>'; }).join(', ') + (sinFoto.length > 8 ? '…' : '') + '</div>';
+
+  // Por obra
+  var obras = d.obras.filter(function (o) { return d.asignaciones.some(function (a) { return a.obraId === o.id && gMes.some(function (g) { return g.id === a.gastoId; }); }); });
+  obras.sort(function (a, b) { return esEmpresa(a) ? 1 : esEmpresa(b) ? -1 : 0; });
+  h += '<h3>Por obra</h3><div class="tarjeta scroll"><table><thead><tr><th>Obra</th><th class="n">Costo real del mes</th><th class="n">IVA recup.</th><th class="n">IVA perdido</th><th class="n">Uso total del presup.</th></tr></thead><tbody>' +
+    obras.map(function (o) {
+      var c = calcObra(o, d, mes), ct = esEmpresa(o) ? c : calcObra(o, d);
+      var est = ct.porcentaje == null ? 'gris' : estadoPct(ct.porcentaje);
+      return '<tr style="cursor:pointer" onclick="' + (esEmpresa(o) ? 'S.mes=\'' + mes + '\';ir(\'empresa\')' : 'ir(\'obra\',\'' + o.id + '\')') + '"><td>' + esc(nombreObra(o)) + '</td><td class="n">' + plata(c.gastado, c.moneda) + '</td><td class="n">' + plata(c.ivaRecuperable, c.moneda) + '</td>' +
+        '<td class="n">' + plata(c.ivaPerdido, c.moneda) + '</td><td class="n">' + (ct.porcentaje == null ? '<span class="suave">sin presup.</span>' : '<span class="etq ' + est + '">' + pct(ct.porcentaje) + '</span>') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+
+  // Por persona
+  var per = {};
+  gMes.forEach(function (g) { var k = g.compradoPor || '—'; per[k] = per[k] || { n: 0, UYU: 0, USD: 0, sinFoto: 0 }; per[k].n++; per[k][g.moneda === 'USD' ? 'USD' : 'UYU'] += num(g.total); if (!cantArchivos(g.id)) per[k].sinFoto++; });
+  h += '<h3>Por persona</h3><div class="tarjeta scroll"><table><thead><tr><th>Compró</th><th class="n">Compras</th><th class="n">Monto</th><th class="n">Sin foto</th></tr></thead><tbody>' +
+    Object.keys(per).sort(function (a, b) { return per[b].UYU - per[a].UYU; }).map(function (k) {
+      return '<tr style="cursor:pointer" onclick="S.f={q:\'\',mes:\'' + mes + '\',obra:\'\',persona:\'' + esc(k) + '\',estado:\'\'};ir(\'todos\')"><td>' + esc(k) + '</td><td class="n">' + per[k].n + '</td><td class="n">' + plata(per[k].UYU, 'UYU') + (per[k].USD ? ' + ' + plata(per[k].USD, 'USD') : '') + '</td><td class="n">' + (per[k].sinFoto ? '<span class="etq amarillo">' + per[k].sinFoto + '</span>' : '0') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+
+  // Por proveedor (top 10)
+  var prov = {};
+  gMes.forEach(function (g) { var k = g.proveedor || '—', v = conv(num(g.total), g.moneda, 'UYU', g.tipoCambio); if (!isNaN(v)) prov[k] = (prov[k] || 0) + v; });
+  var top = Object.keys(prov).sort(function (a, b) { return prov[b] - prov[a]; }).slice(0, 10);
+  h += '<h3>Principales proveedores</h3><div class="tarjeta">' + top.map(function (k) {
+    return '<div class="fila" style="margin:4px 0"><span style="flex:1">' + esc(k) + '</span><b>' + plata(prov[k], 'UYU') + '</b></div>';
+  }).join('') + '<div class="suave" style="margin-top:6px">En pesos; los gastos en dólares sin tipo de cambio no entran en este ranking.</div></div>';
+  h += '<p><a href="#" onclick="S.f={q:\'\',mes:\'' + mes + '\',obra:\'\',persona:\'\',estado:\'\'};ir(\'todos\');return false">Ver todos los gastos de ' + nombreMes(mes) + '</a> · para el contador: filtrá el mes y tocá <b>Descargar CSV</b>.</p>';
+  return h;
+}
+
+/* =================================================================== */
+/* Formularios                                                          */
+/* =================================================================== */
+function abrirModal(html, cerrable) {
+  document.getElementById('modal').innerHTML = '<div class="modal-fondo" ' + (cerrable === false ? '' : 'onclick="if(event.target===this)cerrarModal()"') + '><div class="modal">' +
+    (cerrable === false ? '' : '<button class="cerrar" onclick="cerrarModal()">×</button>') + html + '</div></div>';
+}
+function cerrarModal() { document.getElementById('modal').innerHTML = ''; }
+
+/* ---------------- Obra ---------------- */
+function formObra(id) {
+  var o = id ? porId(S.datos.obras, id) : { nombre: '', cliente: '', tipo: 'Obra', moneda: 'UYU', tipoCambio: '', estado: 'Activa', notas: '' };
+  var sel = function (v, ops) { return ops.map(function (x) { return '<option' + (x === v ? ' selected' : '') + '>' + x + '</option>'; }).join(''); };
+  abrirModal('<h2>' + (id ? 'Editar obra' : 'Nueva obra') + '</h2>' +
+    '<label>Nombre de la obra</label><input id="oNombre" value="' + esc(o.nombre) + '" placeholder="Ej.: Seguro Americano – Sede Ponce">' +
+    '<div class="dos"><div><label>Cliente</label><input id="oCliente" value="' + esc(o.cliente) + '"></div>' +
+    '<div><label>Tipo</label><select id="oTipo">' + sel(o.tipo, ['Obra', 'Extra de mantenimiento', 'Mantenimiento regular', 'Riego', 'Otro']) + '</select></div></div>' +
+    '<div class="dos"><div><label>Moneda del presupuesto</label><select id="oMoneda"><option value="UYU"' + (o.moneda !== 'USD' ? ' selected' : '') + '>Pesos ($)</option><option value="USD"' + (o.moneda === 'USD' ? ' selected' : '') + '>Dólares (US$)</option></select></div>' +
+    '<div><label>Tipo de cambio de referencia (opcional)</label><input id="oTC" inputmode="decimal" value="' + esc(o.tipoCambio) + '" placeholder="Pesos por dólar"></div></div>' +
+    (id ? '<label>Estado</label><select id="oEstado">' + sel(o.estado, ['Activa', 'Cerrada']) + '</select>' : '') +
+    '<label>Notas</label><textarea id="oNotas">' + esc(o.notas) + '</textarea>' +
+    '<div style="margin-top:14px"><button class="btn ancho" id="oGuardar" onclick="guardarObra(\'' + (id || '') + '\')">' + (id ? 'Guardar cambios' : 'Crear obra') + '</button></div>');
+}
+function guardarObra(id) {
+  var v = function (x) { var el = document.getElementById(x); return el ? el.value : ''; };
+  var obj = { id: id, nombre: v('oNombre'), cliente: v('oCliente'), tipo: v('oTipo'), moneda: v('oMoneda'), tipoCambio: v('oTC'), estado: v('oEstado') || 'Activa', notas: v('oNotas') };
+  if (!obj.nombre.trim()) { toast('Poné un nombre a la obra'); return; }
+  var b = document.getElementById('oGuardar'); b.disabled = true; b.textContent = 'Guardando…';
+  api(id ? 'editarObra' : 'crearObra', obj, S.user).then(function (r) {
+    cerrarModal(); toast(id ? 'Obra actualizada' : 'Obra creada');
+    return recargar().then(function () { if (!id && r && r.id) ir('obra', r.id); });
+  }).catch(function (e) { toast('Error: ' + e); b.disabled = false; b.textContent = 'Guardar'; });
+}
+
+/* ---------------- Gasto ---------------- */
+var G = null; // gasto en edición
+function obrasParaReparto() {
+  var e = obraEmpresa();
+  return (e ? [e] : []).concat(S.datos.obras.filter(function (o) { return !esEmpresa(o) && o.estado !== 'Cerrada'; }));
+}
+function obraPorDefecto() {
+  var ult = leerLocal('folium_ultima_obra'), lista = obrasParaReparto();
+  if (S.vista === 'obra' && S.obraId) return S.obraId;
+  if (S.vista === 'empresa' && obraEmpresa()) return obraEmpresa().id;
+  if (ult && lista.some(function (o) { return o.id === ult; })) return ult;
+  var primera = lista.filter(function (o) { return !esEmpresa(o); })[0] || lista[0];
+  return primera ? primera.id : '';
+}
+function cargaRapida(input) {
+  var f = input.files && input.files[0]; input.value = '';
+  if (!f) return;
+  formGasto();
+  prepararArchivo(f, 'Boleta').then(function (a) {
+    G.archivos.push(a); renderMinis();
+    if (S.datos.lecturaIA) leerConIA(a);
+  }).catch(toast);
+}
+function formGasto(obraId, editId) {
+  var lista = obrasParaReparto();
+  if (!lista.length) { toast('Primero creá una obra'); return; }
+  var ed = editId ? porId(S.datos.gastos, editId) : null;
+  G = { editId: editId || null, archivos: [], reparto: [] };
+  if (ed) {
+    G.reparto = S.datos.asignaciones.filter(function (a) { return a.gastoId === editId; }).map(function (a) { return { obraId: a.obraId, itemId: a.itemId || '', porcentaje: num(a.porcentaje) }; });
+    G.rutProveedor = ed.rutProveedor; G.nroComprobante = ed.nroComprobante; G.leidoConIA = verdad(ed.leidoConIA);
+    try { G.detalle = ed.detalle ? JSON.parse(ed.detalle) : []; } catch (e) { G.detalle = []; }
+    G.reparto.forEach(function (r) { if (!lista.some(function (o) { return o.id === r.obraId; })) { var o = porId(S.datos.obras, r.obraId); if (o) lista.push(o); } });
+  }
+  if (!G.reparto.length) G.reparto = [{ obraId: obraId || obraPorDefecto(), itemId: '', porcentaje: 100 }];
+  G.lista = lista;
+  var personas = USUARIOS_BASE.slice();
+  [S.user, ed && ed.compradoPor].forEach(function (p) { if (p && personas.indexOf(p) === -1) personas.push(p); });
+  var comprador = ed ? ed.compradoPor : S.user;
+  abrirModal('<h2>' + (ed ? 'Editar gasto' : 'Cargar gasto') + '</h2>' +
+    '<label>' + (ed ? 'Agregar foto o archivo' : 'Foto de la boleta / factura') + (S.datos.lecturaIA && !ed ? ' · <span style="color:#8a6d00">✨ se lee sola</span>' : '') + '</label>' +
+    '<input type="file" id="gFotos" accept="image/*,application/pdf" multiple onchange="agregarArchivos(this,\'Boleta\')">' +
+    '<div class="miniaturas" id="gMinis"></div><div id="gLectura"></div><div id="gDup"></div>' +
+    '<div class="dos"><div><label>Fecha de compra</label><input type="date" id="gFecha" value="' + esc(ed ? ed.fecha : hoy()) + '"></div>' +
+    '<div><label>¿Quién compró?</label><select id="gComprador" onchange="document.getElementById(\'gCompOtro\').style.display=this.value===\'__otro\'?\'block\':\'none\'">' +
+    personas.map(function (p) { return '<option' + (p === comprador ? ' selected' : '') + '>' + esc(p) + '</option>'; }).join('') + '<option value="__otro">Otro…</option></select>' +
+    '<input id="gCompOtro" style="display:none;margin-top:6px" placeholder="Nombre de quien compró"></div></div>' +
+    '<div class="dos"><div><label>Proveedor</label><input id="gProv" list="provs" placeholder="Ej.: La Cuarta" value="' + esc(ed ? ed.proveedor : '') + '" onchange="chequearDuplicado()"><datalist id="provs">' + proveedoresConocidos().map(function (p) { return '<option value="' + esc(p) + '">'; }).join('') + '</datalist></div>' +
+    '<div><label>Qué se compró</label><input id="gDesc" placeholder="Ej.: 40 dianellas + 20 romeros" value="' + esc(ed ? ed.descripcion : '') + '"></div></div>' +
+    '<div class="tres"><div><label>Moneda</label><select id="gMon" onchange="calcIvaForm()"><option value="UYU">$ pesos</option><option value="USD"' + (ed && ed.moneda === 'USD' ? ' selected' : '') + '>US$ dólares</option></select></div>' +
+    '<div><label>Total pagado (con IVA)</label><input id="gTotal" inputmode="decimal" placeholder="0" value="' + esc(ed ? ed.total : '') + '" oninput="calcIvaForm()" onchange="chequearDuplicado()"></div>' +
+    '<div><label>Tipo de cambio</label><input id="gTC" inputmode="decimal" placeholder="Solo si es otra moneda" value="' + esc(ed ? ed.tipoCambio : '') + '"></div></div>' +
+    '<div class="tres"><div><label>Comprobante</label><select id="gComp" onchange="calcIvaForm()">' + COMPROBANTES.map(function (c) { return '<option' + (ed && ed.comprobante === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>' +
+    '<div><label>Tasa de IVA</label><select id="gTasa" onchange="calcIvaForm()">' + [['22', '22 % (básica)'], ['10', '10 % (mínima)'], ['0', 'Exento / 0 %'], ['manual', 'Mixto: escribo el IVA']].map(function (x) {
+      var actual = ed ? (ed.ivaTasa === 'manual' ? 'manual' : String(num(ed.ivaTasa))) : '22';
+      return '<option value="' + x[0] + '"' + (x[0] === actual ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>' +
+    '<div><label>IVA incluido</label><input id="gIva" inputmode="decimal" readonly value="' + esc(ed ? ed.iva : '') + '"></div></div>' +
+    '<div id="gIvaInfo" class="suave" style="margin-top:6px"></div>' +
+    '<label>¿A qué obra(s) e insumo corresponde?</label>' +
+    '<div class="rapido"><button onclick="repartoA(\'empresa\')">🏢 Es gasto de empresa</button>' + (leerLocal('folium_ultima_obra') && !esEmpresa(porId(S.datos.obras, leerLocal('folium_ultima_obra'))) && porId(S.datos.obras, leerLocal('folium_ultima_obra')) ? '<button onclick="repartoA(\'' + leerLocal('folium_ultima_obra') + '\')">↺ ' + esc(porId(S.datos.obras, leerLocal('folium_ultima_obra')).nombre) + '</button>' : '') + '</div>' +
+    '<div class="reparto" id="gReparto"></div>' +
+    (ed ? '' : '<label class="fila" style="color:var(--texto);margin-top:14px"><input type="checkbox" id="gPagado" style="width:auto" onchange="document.getElementById(\'gPagoBox\').style.display=this.checked?\'block\':\'none\'"> Ya está pagado</label>' +
+    '<div id="gPagoBox" style="display:none"><div class="dos"><div><label>Medio de pago</label><select id="gMedio">' + MEDIOS_PAGO.map(function (m) { return '<option>' + m + '</option>'; }).join('') + '</select></div>' +
+    '<div><label>Pagó</label><input id="gPagadoPor" value="Marcos"></div></div>' +
+    '<label>Captura de la transferencia (opcional)</label><input type="file" accept="image/*,application/pdf" multiple onchange="agregarArchivos(this,\'Transferencia\')"></div>') +
+    '<label>Notas</label><textarea id="gNotas" placeholder="Ej.: se compró de más para usar en la obra X">' + esc(ed ? ed.notas : '') + '</textarea>' +
+    '<div style="margin-top:14px"><button class="btn ancho" id="gGuardar" onclick="guardarGasto()">' + (ed ? 'Guardar cambios' : 'Guardar gasto') + '</button></div>');
+  if (ed && ed.ivaTasa === 'manual') document.getElementById('gIva').value = ed.iva;
+  renderReparto(); calcIvaForm();
+  if (ed && ed.ivaTasa === 'manual') { document.getElementById('gIva').value = ed.iva; calcIvaForm(); }
+}
+function repartoA(id) {
+  if (id === 'empresa') { var e = obraEmpresa(); if (!e) return; id = e.id; }
+  G.reparto = [{ obraId: id, itemId: '', porcentaje: 100 }]; renderReparto();
+}
+function proveedoresConocidos() {
+  var base = ['Gustavo', 'Vivero Trujillo', 'Mercoplan', 'La Cuarta', 'Musacco', 'Equin', 'Hidráulica XXI', 'Agropradera', 'Lawnder'];
+  S.datos.gastos.forEach(function (g) { if (g.proveedor && base.indexOf(g.proveedor) === -1) base.push(g.proveedor); });
+  return base;
+}
+function calcIvaForm() {
+  var total = num(document.getElementById('gTotal').value), tasa = document.getElementById('gTasa').value;
+  var ivaEl = document.getElementById('gIva'), comp = document.getElementById('gComp').value, mon = document.getElementById('gMon').value;
+  if (tasa === 'manual') { ivaEl.readOnly = false; }
+  else { ivaEl.readOnly = true; var t = num(tasa); ivaEl.value = total ? Math.round((total - total / (1 + t / 100)) * 100) / 100 : ''; }
+  var iva = num(ivaEl.value), rec = /RUT/.test(comp) && iva > 0;
+  document.getElementById('gIvaInfo').innerHTML = total ? (rec
+    ? 'Neto sin IVA: <b>' + plata(total - iva, mon) + '</b> · IVA recuperable: <b style="color:var(--ok)">' + plata(iva, mon) + '</b>'
+    : (iva > 0 ? 'Con este comprobante el IVA (' + plata(iva, mon) + ') <b style="color:var(--rojo)">no se recupera</b> y queda como costo.' : '')) : '';
+}
+function renderReparto() {
+  var obras = G.lista || obrasParaReparto();
+  var h = G.reparto.map(function (r, i) {
+    var o = porId(S.datos.obras, r.obraId), emp = esEmpresa(o);
+    var items = S.datos.items.filter(function (it) { return it.obraId === r.obraId; }).sort(function (a, b) { return num(a.orden) - num(b.orden); });
+    return '<div class="linea"><select onchange="G.reparto[' + i + '].obraId=this.value;G.reparto[' + i + '].itemId=\'\';renderReparto()">' +
+      obras.map(function (x) { return '<option value="' + x.id + '"' + (x.id === r.obraId ? ' selected' : '') + '>' + esc(esEmpresa(x) ? '🏢 Empresa (gastos comunes)' : x.nombre) + '</option>'; }).join('') + '</select>' +
+      '<select onchange="G.reparto[' + i + '].itemId=this.value"><option value="">' + (emp ? '— Categoría —' : '— Insumo (opcional) —') + '</option>' +
+      items.map(function (it) { return '<option value="' + it.id + '"' + (it.id === r.itemId ? ' selected' : '') + '>' + esc(it.insumo) + '</option>'; }).join('') + '</select>' +
+      '<input inputmode="decimal" value="' + r.porcentaje + '" oninput="G.reparto[' + i + '].porcentaje=num(this.value);sumaReparto()" title="% del gasto">' +
+      (G.reparto.length > 1 ? '<button class="x" onclick="G.reparto.splice(' + i + ',1);renderReparto()">✕</button>' : '<span></span>') + '</div>';
+  }).join('');
+  h += '<div class="fila" style="margin-top:4px"><button class="btn chico sec" onclick="G.reparto.push({obraId:G.reparto[0].obraId,itemId:\'\',porcentaje:0});renderReparto()">+ Repartir con otra obra / insumo</button>' +
+    (G.reparto.length > 1 ? '<button class="btn chico sec" onclick="partesIguales()">Partes iguales</button>' : '') + '<span id="gSuma" class="suave"></span></div>';
+  document.getElementById('gReparto').innerHTML = h; sumaReparto();
+}
+function partesIguales() {
+  var n = G.reparto.length, base = Math.floor(10000 / n) / 100;
+  G.reparto.forEach(function (r, i) { r.porcentaje = i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base; });
+  renderReparto();
+}
+function sumaReparto() {
+  var s = G.reparto.reduce(function (a, r) { return a + num(r.porcentaje); }, 0), el = document.getElementById('gSuma');
+  if (el) el.innerHTML = 'Suma: <b style="color:' + (Math.abs(s - 100) > 0.5 ? 'var(--rojo)' : 'var(--ok)') + '">' + Math.round(s * 100) / 100 + ' %</b>';
+  return s;
+}
+
+/* Fotos: se achican en el teléfono antes de subir (máx. 1600 px) */
+function agregarArchivos(input, tipo) {
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = '';
+  files.forEach(function (f) {
+    prepararArchivo(f, tipo).then(function (a) {
+      G.archivos.push(a); renderMinis();
+      if (tipo === 'Boleta' && S.datos.lecturaIA && !G.leyendo && !G.leidoConIA) leerConIA(a);
+      else if (tipo === 'Boleta' && !S.datos.lecturaIA && !G.avisoIA) { G.avisoIA = true; }
+    }).catch(function (e) { toast(e); });
+  });
+}
+function prepararArchivo(f, tipo) {
+  return new Promise(function (ok, mal) {
+    if (f.type === 'application/pdf') {
+      if (f.size > 15 * 1024 * 1024) return mal('El PDF pesa más de 15 MB');
+      var r = new FileReader(); r.onload = function () { ok({ tipo: tipo, mime: f.type, data: String(r.result).split(',')[1], vista: null, nombre: f.name }); }; r.onerror = function () { mal('No pude leer el archivo'); }; r.readAsDataURL(f); return;
+    }
+    var rd = new FileReader();
+    rd.onerror = function () { mal('No pude leer la foto'); };
+    rd.onload = function () {
+      var img = new Image();
+      img.onerror = function () { mal('Formato de imagen no soportado'); };
+      img.onload = function () {
+        var max = 1600, w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
+        var cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        var url = cv.toDataURL('image/jpeg', 0.82);
+        ok({ tipo: tipo, mime: 'image/jpeg', data: url.split(',')[1], vista: url, nombre: f.name });
+      };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+  });
+}
+function renderMinis(idCont) {
+  var el = document.getElementById(idCont || 'gMinis'); if (!el) return;
+  el.innerHTML = G.archivos.map(function (a, i) {
+    return '<div class="m" style="' + (a.vista ? 'background-image:url(' + a.vista + ')' : '') + '">' + (a.vista ? '' : '📄 PDF') +
+      '<span class="q" onclick="G.archivos.splice(' + i + ',1);renderMinis(\'' + (idCont || 'gMinis') + '\')">×</span></div>';
+  }).join('');
+}
+/* ---------------- Lectura automática de la boleta (Gemini) ---------------- */
+function leerConIA(a) {
+  a = a || G.archivos.filter(function (x) { return x.tipo === 'Boleta'; })[0];
+  if (!a) { toast('Primero agregá la foto de la boleta'); return; }
+  G.leyendo = true;
+  var box = document.getElementById('gLectura');
+  box.innerHTML = '<div class="lectura"><span class="girando"></span>Leyendo la boleta… podés ir completando otras cosas.</div>';
+  var obrasIds = G.reparto.map(function (r) { return r.obraId; });
+  api('leerBoleta', { mime: a.mime, data: a.data }, obrasIds).then(function (r) {
+    G.leyendo = false;
+    if (!document.getElementById('gTotal')) return; // se cerró el formulario
+    aplicarLectura(r);
+  }).catch(function (e) {
+    G.leyendo = false;
+    if (box) box.innerHTML = '<div class="aviso amarillo">No se pudo leer la boleta automáticamente: ' + esc(e) + '<br>Cargá los datos a mano. <a href="#" onclick="leerConIA();return false">Reintentar</a></div>';
+  });
+}
+function marcar(id, valor) {
+  var el = document.getElementById(id);
+  if (!el || valor === '' || valor == null) return;
+  el.value = valor; el.classList.add('ia');
+  el.addEventListener('input', function () { el.classList.remove('ia'); }, { once: true });
+}
+function aplicarLectura(r) {
+  var box = document.getElementById('gLectura');
+  if (!(r.total > 0)) {
+    box.innerHTML = '<div class="aviso amarillo">No pude leer un total en la imagen. ' + esc(r.observaciones || '') + ' Cargá los datos a mano o probá con otra foto más nítida.</div>';
+    return;
+  }
+  G.leidoConIA = true; G.rutProveedor = r.rutProveedor; G.nroComprobante = r.nroComprobante; G.detalle = r.lineas;
+  marcar('gFecha', r.fecha);
+  marcar('gProv', r.proveedor);
+  var desc = r.lineas.map(function (l) { return (l.cantidad ? l.cantidad + ' ' : '') + l.descripcion; }).join(', ');
+  marcar('gDesc', desc.length > 140 ? desc.slice(0, 137) + '…' : desc);
+  marcar('gMon', r.moneda);
+  marcar('gComp', r.comprobante);
+  marcar('gTasa', r.tasaIva);
+  marcar('gTotal', r.total);
+  calcIvaForm(); chequearDuplicado();
+  if (r.tasaIva === 'manual' && r.iva !== '') { marcar('gIva', r.iva); calcIvaForm(); }
+
+  // Reparto por insumo según las líneas (solo si el gasto va a una sola obra)
+  var cambioReparto = false;
+  if (G.reparto.length === 1) {
+    var nuevo = repartoDesdeLineas(G.reparto[0].obraId, r.lineas);
+    if (nuevo) { G.reparto = nuevo; renderReparto(); cambioReparto = true; }
+  }
+  var nombreItem = function (id) { var it = id ? porId(S.datos.items, id) : null; return it ? esc(it.insumo) : '<span class="suave">sin insumo</span>'; };
+  box.innerHTML = '<div class="lectura"><b>✨ Datos leídos de la boleta</b> · confianza ' + esc(r.confianza) +
+    (r.tipoComprobante ? ' · ' + esc(r.tipoComprobante) : '') + (r.nroComprobante ? ' ' + esc(r.nroComprobante) : '') +
+    (r.observaciones ? '<div class="suave" style="margin-top:4px">' + esc(r.observaciones) + '</div>' : '') +
+    (r.lineas.length ? '<table><tr><th>Línea</th><th class="n">Cant.</th><th class="n">Total</th><th>Insumo sugerido</th></tr>' +
+      r.lineas.map(function (l) { return '<tr><td>' + esc(l.descripcion) + '</td><td class="n">' + esc(l.cantidad) + '</td><td class="n">' + (l.total !== '' ? plata(l.total, r.moneda) : '') + '</td><td>' + nombreItem(l.itemId) + '</td></tr>'; }).join('') + '</table>' : '') +
+    '<div style="margin-top:6px">Los campos en amarillo los completó la lectura: <b>revisalos antes de guardar</b>.' + (cambioReparto ? ' El reparto por insumo también se armó solo.' : '') +
+    ' <a href="#" onclick="leerConIA();return false">Leer de nuevo</a></div></div>';
+}
+function repartoDesdeLineas(obraId, lineas) {
+  var itemsObra = {}; S.datos.items.forEach(function (it) { if (it.obraId === obraId) itemsObra[it.id] = true; });
+  var conItem = lineas.filter(function (l) { return l.itemId && itemsObra[l.itemId]; });
+  if (!conItem.length) return null;
+  var pesos = {}, totalPeso = 0, sinMontos = lineas.every(function (l) { return !(num(l.total) > 0); });
+  lineas.forEach(function (l) {
+    var k = l.itemId && itemsObra[l.itemId] ? l.itemId : '';
+    var w = sinMontos ? 1 : num(l.total);
+    if (!(w > 0)) return;
+    pesos[k] = (pesos[k] || 0) + w; totalPeso += w;
+  });
+  if (!(totalPeso > 0)) return null;
+  var claves = Object.keys(pesos), acum = 0;
+  return claves.map(function (k, i) {
+    var p = i === claves.length - 1 ? Math.round((100 - acum) * 100) / 100 : Math.round(pesos[k] / totalPeso * 10000) / 100;
+    acum += p;
+    return { obraId: obraId, itemId: k, porcentaje: p };
+  });
+}
+
+function posiblesDuplicados(d, excluir) {
+  var prov = String(d.proveedor || '').trim().toLowerCase().split(/\s+/)[0] || '';
+  return S.datos.gastos.filter(function (g) {
+    if (g.id === excluir || verdad(g.anulado)) return false;
+    if (d.nroComprobante && g.nroComprobante && String(g.nroComprobante).replace(/\s/g, '') === String(d.nroComprobante).replace(/\s/g, '')) return true;
+    var mismoMonto = Math.abs(num(g.total) - num(d.total)) < 1 && num(d.total) > 0;
+    var mismaFecha = g.fecha === d.fecha;
+    var mismoProv = prov && String(g.proveedor || '').toLowerCase().indexOf(prov) > -1;
+    return mismoMonto && mismaFecha && (mismoProv || !prov);
+  });
+}
+function chequearDuplicado() {
+  var el = document.getElementById('gDup'); if (!el) return;
+  var d = { proveedor: document.getElementById('gProv').value, total: document.getElementById('gTotal').value, fecha: document.getElementById('gFecha').value, nroComprobante: G.nroComprobante };
+  var dup = posiblesDuplicados(d, G.editId);
+  el.innerHTML = dup.length ? '<div class="aviso rojo"><b>¿Ya está cargado?</b> Hay ' + dup.length + ' gasto' + (dup.length === 1 ? '' : 's') + ' parecido' + (dup.length === 1 ? '' : 's') + ': ' +
+    dup.map(function (g) { return esc(g.proveedor) + ' · ' + plata(num(g.total), g.moneda) + ' · ' + fechaCorta(g.fecha) + ' · cargó ' + esc(g.cargadoPor); }).join('; ') + '</div>' : '';
+  return dup;
+}
+function guardarGasto() {
+  var v = function (x) { var el = document.getElementById(x); return el ? el.value : ''; };
+  var comprador = v('gComprador') === '__otro' ? v('gCompOtro') : v('gComprador');
+  var pag = document.getElementById('gPagado');
+  var gasto = { fecha: v('gFecha'), compradoPor: comprador, proveedor: v('gProv'), descripcion: v('gDesc'), moneda: v('gMon'),
+    tipoCambio: v('gTC'), total: v('gTotal'), ivaTasa: v('gTasa'), iva: v('gIva'), comprobante: v('gComp'),
+    pagado: !!(pag && pag.checked), medioPago: v('gMedio'), pagadoPor: v('gPagadoPor'), fechaPago: hoy(), notas: v('gNotas'),
+    rutProveedor: G.rutProveedor || '', nroComprobante: G.nroComprobante || '', detalle: G.detalle || [], leidoConIA: !!G.leidoConIA };
+  if (!(num(gasto.total) > 0)) { toast('Falta el monto total'); return; }
+  if (!gasto.proveedor.trim() && !gasto.descripcion.trim()) { toast('Poné el proveedor o qué se compró'); return; }
+  if (Math.abs(sumaReparto() - 100) > 0.5) { toast('El reparto entre obras tiene que sumar 100 %'); return; }
+  var faltaTC = G.reparto.some(function (r) { var o = porId(S.datos.obras, r.obraId); return o && (o.moneda || 'UYU') !== gasto.moneda && !(num(gasto.tipoCambio) > 0) && !(num(o.tipoCambio) > 0); });
+  if (faltaTC) { toast('La obra está en otra moneda: cargá el tipo de cambio'); return; }
+  var dup = posiblesDuplicados(gasto, G.editId);
+  if (dup.length && !confirm('Parece que este gasto ya está cargado (' + dup.map(function (g) { return g.proveedor + ' ' + plata(num(g.total), g.moneda) + ', cargó ' + g.cargadoPor; }).join('; ') + '). ¿Guardar igual?')) return;
+  if (!G.editId && !G.archivos.some(function (a) { return a.tipo === 'Boleta'; }) && !confirm('No adjuntaste foto de la boleta. ¿Guardar igual? (la podés subir después)')) return;
+  var b = document.getElementById('gGuardar'); b.disabled = true; b.textContent = G.archivos.length ? 'Subiendo fotos…' : 'Guardando…';
+  var archivos = G.archivos.map(function (a) { return { tipo: a.tipo, mime: a.mime, data: a.data }; });
+  var principal = G.reparto[0].obraId;
+  var p = G.editId
+    ? api('editarGasto', G.editId, gasto, G.reparto, S.user).then(function () { return archivos.length ? api('subirArchivos', '', G.editId, archivos, S.user) : 0; })
+    : api('crearGasto', gasto, G.reparto, archivos, S.user);
+  p.then(function () {
+    if (principal) guardarLocal('folium_ultima_obra', principal);
+    var edit = G.editId; cerrarModal(); toast(edit ? 'Cambios guardados' : 'Gasto guardado'); return recargar();
+  }).catch(function (e) { toast('Error: ' + e); b.disabled = false; b.textContent = G.editId ? 'Guardar cambios' : 'Guardar gasto'; });
+}
+/* ---------------- Ver gasto ---------------- */
+function verGasto(id) {
+  var g = porId(S.datos.gastos, id); if (!g) return;
+  var asig = S.datos.asignaciones.filter(function (a) { return a.gastoId === id; });
+  var arch = S.datos.archivos.filter(function (f) { return f.gastoId === id; })
+    .filter(function (f, i, arr) { return arr.findIndex(function (x) { return x.fileId === f.fileId; }) === i; });
+  var fila = function (k, v) { return v === '' || v == null ? '' : '<tr><th style="width:40%">' + k + '</th><td>' + v + '</td></tr>'; };
+  var h = '<h2>' + esc(g.proveedor || g.descripcion || 'Gasto') + '</h2>' +
+    (verdad(g.anulado) ? '<div class="aviso rojo">Anulado por ' + esc(g.anuladoPor) + (g.motivoAnulacion ? ': ' + esc(g.motivoAnulacion) : '') + '</div>' : '') +
+    '<table>' + fila('Fecha', fechaCorta(g.fecha)) + fila('Qué se compró', esc(g.descripcion)) + fila('Compró', esc(g.compradoPor)) + fila('Cargó', esc(g.cargadoPor) + ' · ' + esc(g.creado)) +
+    fila('Total (con IVA)', '<b>' + plata(num(g.total), g.moneda) + '</b>') + fila('IVA', plata(num(g.iva), g.moneda) + (g.ivaTasa === 'manual' ? ' (mixto)' : ' (' + num(g.ivaTasa) + ' %)')) +
+    fila('Neto sin IVA', plata(num(g.neto), g.moneda)) + fila('Comprobante', esc(g.comprobante) + (verdad(g.ivaRecuperable) ? ' <span class="etq ok">IVA recuperable</span>' : '')) +
+    fila('Costo real para la empresa', plata(costoReal(g), g.moneda)) + (num(g.tipoCambio) ? fila('Tipo de cambio', esc(g.tipoCambio)) : '') +
+    fila('Pago', verdad(g.pagado) ? '<span class="etq ok">Pagado</span> ' + esc(g.medioPago) + ' · ' + esc(g.pagadoPor) + ' · ' + fechaCorta(g.fechaPago) : '<span class="etq amarillo">Pendiente</span>') +
+    fila('Proveedor (RUT)', esc(g.rutProveedor)) + fila('N.º de comprobante', esc(g.nroComprobante)) +
+    fila('Notas', esc(g.notas)) + '</table>' + detalleGasto(g) +
+    '<h3>Reparto</h3><table>' + asig.map(function (a) {
+      var o = porId(S.datos.obras, a.obraId), it = a.itemId ? porId(S.datos.items, a.itemId) : null;
+      return '<tr><td>' + esc(nombreObra(o)) + (it ? '<div class="suave">' + esc(it.insumo) + '</div>' : '<div class="suave">' + (esEmpresa(o) ? 'Sin categoría' : 'Sin insumo asignado') + '</div>') + '</td><td class="n">' + num(a.porcentaje) + ' %</td><td class="n">' + plata(num(g.total) * num(a.porcentaje) / 100, g.moneda) + '</td></tr>';
+    }).join('') + '</table>' +
+    '<h3>Comprobantes</h3>' + (arch.length ? '<div class="miniaturas">' + arch.map(function (f) { return '<div class="m" onclick="verArchivo(\'' + f.id + '\')">' + ((f.mime || '').indexOf('pdf') > -1 ? '📄' : '🖼️') + '<br>' + esc(f.tipo) + '</div>'; }).join('') + '</div>' : '<p class="suave">Sin archivos.</p>') +
+    '<div class="fila" style="margin-top:16px">' +
+    (verdad(g.anulado) ? '' : (verdad(g.pagado) ? '<button class="btn sec" onclick="desmarcar(\'' + id + '\')">Desmarcar pagado</button>' : '<button class="btn" onclick="formPago(\'' + id + '\')">Marcar como pagado</button>') +
+      '<button class="btn sec" onclick="formGasto(null,\'' + id + '\')">Editar</button>' +
+      '<button class="btn sec" onclick="formArchivos(null,\'' + id + '\')">Adjuntar foto</button>' +
+      '<button class="btn peligro" onclick="anular(\'' + id + '\')">Anular</button>') + '</div>';
+  abrirModal(h);
+}
+function detalleGasto(g) {
+  var l = [];
+  try { l = g.detalle ? JSON.parse(g.detalle) : []; } catch (e) { l = []; }
+  if (!l.length) return '';
+  return '<h3>Detalle de la boleta' + (verdad(g.leidoConIA) ? ' <span class="etq gris">leído con IA</span>' : '') + '</h3><table>' +
+    l.map(function (x) { var it = x.itemId ? porId(S.datos.items, x.itemId) : null;
+      return '<tr><td>' + esc(x.descripcion) + (it ? '<div class="suave">' + esc(it.insumo) + '</div>' : '') + '</td><td class="n">' + esc(x.cantidad) + '</td><td class="n">' + (x.total !== '' && x.total != null ? plata(num(x.total), g.moneda) : '') + '</td></tr>'; }).join('') + '</table>';
+}
+function verArchivo(id) {
+  abrirModal('<div class="visor"><p class="suave">Cargando archivo…</p></div>');
+  api('verArchivo', id).then(function (r) {
+    var url = 'data:' + r.mime + ';base64,' + r.data;
+    var cont = r.mime.indexOf('pdf') > -1
+      ? (function () { var bin = atob(r.data), arr = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+          var bu = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' })); return '<p><a class="btn" href="' + bu + '" target="_blank" download="' + esc(r.nombre) + '">Abrir PDF</a></p>'; })()
+      : '<img src="' + url + '">';
+    abrirModal('<div class="visor"><p class="suave">' + esc(r.nombre) + '</p>' + cont + '</div>');
+  }).catch(function (e) { abrirModal('<div class="aviso rojo">No pude abrir el archivo: ' + esc(e) + '</div>'); });
+}
+
+/* ---------------- Pago ---------------- */
+function formPago(id) {
+  var g = porId(S.datos.gastos, id);
+  G = { archivos: [] };
+  abrirModal('<h2>Marcar como pagado</h2><p>' + esc(g.proveedor || g.descripcion) + ' · <b>' + plata(num(g.total), g.moneda) + '</b></p>' +
+    '<div class="dos"><div><label>Medio de pago</label><select id="pMedio">' + MEDIOS_PAGO.map(function (m) { return '<option>' + m + '</option>'; }).join('') + '</select></div>' +
+    '<div><label>Fecha de pago</label><input type="date" id="pFecha" value="' + hoy() + '"></div></div>' +
+    '<label>Pagó</label><input id="pPor" value="Marcos">' +
+    '<label>Captura de la transferencia (opcional)</label><input type="file" accept="image/*,application/pdf" multiple onchange="agregarArchivosPago(this)">' +
+    '<div class="miniaturas" id="pMinis"></div>' +
+    '<div style="margin-top:14px"><button class="btn ancho" id="pGuardar" onclick="guardarPago(\'' + id + '\')">Confirmar pago</button></div>');
+}
+function agregarArchivosPago(input) {
+  var files = Array.prototype.slice.call(input.files || []); input.value = '';
+  files.forEach(function (f) { prepararArchivo(f, 'Transferencia').then(function (a) { G.archivos.push(a); renderMinis('pMinis'); }).catch(toast); });
+}
+function guardarPago(id) {
+  var b = document.getElementById('pGuardar'); b.disabled = true; b.textContent = 'Guardando…';
+  api('marcarPagado', id, { medioPago: document.getElementById('pMedio').value, fechaPago: document.getElementById('pFecha').value, pagadoPor: document.getElementById('pPor').value },
+    G.archivos.map(function (a) { return { tipo: a.tipo, mime: a.mime, data: a.data }; }), S.user)
+    .then(function () { cerrarModal(); toast('Marcado como pagado'); return recargar(); })
+    .catch(function (e) { toast('Error: ' + e); b.disabled = false; b.textContent = 'Confirmar pago'; });
+}
+function desmarcar(id) {
+  if (!confirm('¿Volver a dejarlo como pendiente de pago?')) return;
+  api('desmarcarPagado', id, S.user).then(function () { cerrarModal(); toast('Quedó pendiente'); return recargar(); }).catch(function (e) { toast('Error: ' + e); });
+}
+function anular(id) {
+  var motivo = prompt('¿Por qué se anula? (ej.: cargado dos veces)');
+  if (motivo === null) return;
+  api('anularGasto', id, motivo, S.user).then(function () { cerrarModal(); toast('Gasto anulado'); return recargar(); }).catch(function (e) { toast('Error: ' + e); });
+}
+
+/* ---------------- Subir archivos sueltos ---------------- */
+function formArchivos(obraId, gastoId) {
+  G = { archivos: [], obraId: obraId, gastoId: gastoId };
+  abrirModal('<h2>Subir foto o archivo</h2>' +
+    '<label>Tipo</label><select id="aTipo">' + (gastoId ? ['Boleta', 'Transferencia', 'Remito', 'Otro'] : ['Presupuesto aceptado', 'Remito', 'Foto de avance', 'Boleta', 'Otro']).map(function (t) { return '<option>' + t + '</option>'; }).join('') + '</select>' +
+    '<label>Archivo(s)</label><input type="file" accept="image/*,application/pdf" multiple onchange="agregarArchivosSueltos(this)">' +
+    '<div class="miniaturas" id="aMinis"></div>' +
+    '<div style="margin-top:14px"><button class="btn ancho" id="aGuardar" onclick="guardarArchivosSueltos()">Subir</button></div>');
+}
+function agregarArchivosSueltos(input) {
+  var files = Array.prototype.slice.call(input.files || []); input.value = '';
+  var tipo = document.getElementById('aTipo').value;
+  files.forEach(function (f) { prepararArchivo(f, tipo).then(function (a) { G.archivos.push(a); renderMinis('aMinis'); }).catch(toast); });
+}
+function guardarArchivosSueltos() {
+  if (!G.archivos.length) { toast('Elegí al menos un archivo'); return; }
+  var tipo = document.getElementById('aTipo').value;
+  var b = document.getElementById('aGuardar'); b.disabled = true; b.textContent = 'Subiendo…';
+  api('subirArchivos', G.obraId || '', G.gastoId || '', G.archivos.map(function (a) { return { tipo: tipo, mime: a.mime, data: a.data }; }), S.user)
+    .then(function (n) { cerrarModal(); toast(n + ' archivo(s) subidos'); return recargar(); })
+    .catch(function (e) { toast('Error: ' + e); b.disabled = false; b.textContent = 'Subir'; });
+}
+
+/* =================================================================== */
+/* Arranque                                                             */
+/* =================================================================== */
+S.user = leerLocal('folium_usuario');
+window.addEventListener('beforeunload', function (e) { if (EDIT && EDIT.sucio) { e.preventDefault(); e.returnValue = ''; } });
+recargar();
+</script>
+</body>
+</html>
