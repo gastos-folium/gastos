@@ -478,36 +478,43 @@ function tabPresupuesto(o, c) {
     EDIT = { obraId: o.id, items: c.filas.map(function (f) { return Object.assign({}, f.item); }), sucio: false };
   }
   var m = o.moneda || 'UYU';
-  var h = '<div class="aviso info">Cargá los insumos tal como quedaron en el presupuesto aceptado, con precios <b>sin IVA</b>. La mano de obra no hace falta (no se compra), salvo que quieras controlarla también.</div>' +
-    '<div class="tarjeta scroll"><table class="pres"><thead><tr><th>Rubro</th><th>Insumo</th><th>Unidad</th><th class="n">Cant.</th><th class="n">Precio unit.</th><th>Mon.</th><th>IVA</th><th class="n">Subtotal</th><th></th></tr></thead><tbody>';
-  var total = 0;
+  var h = '<div class="aviso info">Cargá cada insumo del presupuesto aceptado, con precios <b>sin IVA</b>. El total de la obra es la suma de los renglones. Si solo tenés el total, cargá un renglón "Insumos" con cantidad 1 y el total como precio.</div>';
+  if (!EDIT.items.length) h += '<div class="tarjeta suave">Sin renglones todavía. Tocá <b>+ Agregar insumo</b>.</div>';
   EDIT.items.forEach(function (it, i) {
-    var sub = num(it.cantidad) * num(it.precioUnit);
-    var subObra = conv(sub, it.moneda || m, m, o.tipoCambio);
-    if (!isNaN(subObra)) total += subObra;
-    h += '<tr>' +
-      '<td><input value="' + esc(it.rubro) + '" placeholder="Plantas" oninput="editItem(' + i + ',\'rubro\',this.value)"></td>' +
-      '<td class="ins"><input value="' + esc(it.insumo) + '" placeholder="Pittosporum nana" oninput="editItem(' + i + ',\'insumo\',this.value)"></td>' +
-      '<td><input value="' + esc(it.unidad) + '" placeholder="u" style="width:60px" oninput="editItem(' + i + ',\'unidad\',this.value)"></td>' +
-      '<td><input value="' + esc(it.cantidad) + '" inputmode="decimal" style="width:70px;text-align:right" onchange="editItem(' + i + ',\'cantidad\',this.value,true)"></td>' +
-      '<td><input value="' + esc(it.precioUnit) + '" inputmode="decimal" style="width:95px;text-align:right" onchange="editItem(' + i + ',\'precioUnit\',this.value,true)"></td>' +
-      '<td><select style="width:70px" onchange="editItem(' + i + ',\'moneda\',this.value,true)"><option value="UYU"' + ((it.moneda || m) === 'UYU' ? ' selected' : '') + '>$</option><option value="USD"' + ((it.moneda || m) === 'USD' ? ' selected' : '') + '>US$</option></select></td>' +
-      '<td><select style="width:80px" onchange="editItem(' + i + ',\'ivaTasa\',this.value,true)">' + [['22', '22 %'], ['10', '10 %'], ['0', 'Exento']].map(function (x) { return '<option value="' + x[0] + '"' + (String(num(it.ivaTasa)) === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></td>' +
-      '<td class="n">' + plata(sub, it.moneda || m) + '</td>' +
-      '<td><button class="x" title="Quitar" onclick="quitarItem(' + i + ')">✕</button></td></tr>';
+    var mon = it.moneda || m;
+    h += '<div class="tarjeta pres-item">' +
+      '<div class="entre"><b>Renglón ' + (i + 1) + '</b><button class="x" style="width:36px" title="Quitar" onclick="quitarItem(' + i + ')">✕</button></div>' +
+      '<label>Insumo *</label><input value="' + esc(it.insumo) + '" placeholder="Ej.: Pittosporum nana, Corteza, Tierra" oninput="editItem(' + i + ',\'insumo\',this.value)">' +
+      '<div class="tres"><div><label>Cantidad</label><input value="' + esc(it.cantidad) + '" inputmode="decimal" placeholder="1" oninput="editItem(' + i + ',\'cantidad\',this.value)"></div>' +
+      '<div><label>Unidad</label><input value="' + esc(it.unidad) + '" placeholder="u, m², bolsa" oninput="editItem(' + i + ',\'unidad\',this.value)"></div>' +
+      '<div><label>Precio unitario sin IVA</label><input value="' + esc(it.precioUnit) + '" inputmode="decimal" placeholder="0" oninput="editItem(' + i + ',\'precioUnit\',this.value)"></div></div>' +
+      '<div class="tres"><div><label>Moneda</label><select onchange="editItem(' + i + ',\'moneda\',this.value)"><option value="UYU"' + (mon === 'UYU' ? ' selected' : '') + '>$ pesos</option><option value="USD"' + (mon === 'USD' ? ' selected' : '') + '>US$ dólares</option></select></div>' +
+      '<div><label>IVA</label><select onchange="editItem(' + i + ',\'ivaTasa\',this.value)">' + [['22', '22 %'], ['10', '10 %'], ['0', 'Exento']].map(function (x) { return '<option value="' + x[0] + '"' + (String(num(it.ivaTasa)) === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></div>' +
+      '<div><label>Rubro (opcional)</label><input value="' + esc(it.rubro) + '" placeholder="Plantas" oninput="editItem(' + i + ',\'rubro\',this.value)"></div></div>' +
+      '<div class="suave" style="margin-top:8px;text-align:right">Subtotal: <b id="sub' + i + '">' + plata(num(it.cantidad || 1) * num(it.precioUnit), mon) + '</b></div></div>';
   });
-  if (!EDIT.items.length) h += '<tr><td colspan="9" class="suave">Sin ítems todavía.</td></tr>';
-  h += '<tr class="totales"><td colspan="7">Total insumos sin IVA</td><td class="n">' + plata(total, m) + '</td><td></td></tr></tbody></table></div>' +
+  h += '<div class="tarjeta"><div class="entre"><b>Total insumos sin IVA</b><b id="presTotal">' + plata(totalEdit(o), m) + '</b></div></div>' +
     '<div class="fila"><button class="btn sec" onclick="agregarItem()">+ Agregar insumo</button>' +
     '<button class="btn sec" onclick="formPegar()">Pegar desde planilla</button>' +
     (S.datos.lecturaIA ? '<button class="btn sec" onclick="document.getElementById(\'presArchivo\').click()">✨ Leer presupuesto (PDF o foto)</button>' +
       '<input type="file" id="presArchivo" accept="image/*,application/pdf" style="display:none" onchange="leerPresupuestoArchivo(this)">' : '') +
-    '<button class="btn" ' + (EDIT.sucio ? '' : 'disabled') + ' id="btnGuardarPres" onclick="guardarPres()">Guardar presupuesto</button></div>' +
-    (EDIT.sucio ? '<p class="aviso amarillo">Hay cambios sin guardar.</p>' : '');
+    '</div><div style="margin-top:10px"><button class="btn ancho" id="btnGuardarPres" onmousedown="event.preventDefault()" onclick="guardarPres()">Guardar presupuesto</button></div>' +
+    '<p class="aviso amarillo" id="presSucio" style="display:' + (EDIT.sucio ? 'block' : 'none') + '">Hay cambios sin guardar.</p>';
   return h;
 }
-function editItem(i, campo, valor, rerender) { EDIT.items[i][campo] = valor; EDIT.sucio = true; if (rerender) render(); else { var b = document.getElementById('btnGuardarPres'); if (b) b.disabled = false; } }
-function agregarItem() { var o = porId(S.datos.obras, S.obraId); EDIT.items.push({ rubro: '', insumo: '', unidad: 'u', cantidad: '', precioUnit: '', moneda: o.moneda || 'UYU', ivaTasa: 22 }); EDIT.sucio = true; render(); }
+function totalEdit(o) {
+  var m = o.moneda || 'UYU', t = 0;
+  EDIT.items.forEach(function (it) { var v = conv(num(it.cantidad || 1) * num(it.precioUnit), it.moneda || m, m, o.tipoCambio); if (!isNaN(v)) t += v; });
+  return t;
+}
+function editItem(i, campo, valor) {
+  EDIT.items[i][campo] = valor; EDIT.sucio = true;
+  var o = porId(S.datos.obras, EDIT.obraId), it = EDIT.items[i];
+  var sub = document.getElementById('sub' + i); if (sub) sub.textContent = plata(num(it.cantidad || 1) * num(it.precioUnit), it.moneda || o.moneda || 'UYU');
+  var tot = document.getElementById('presTotal'); if (tot) tot.textContent = plata(totalEdit(o), o.moneda || 'UYU');
+  var av = document.getElementById('presSucio'); if (av) av.style.display = 'block';
+}
+function agregarItem() { var o = porId(S.datos.obras, S.obraId); EDIT.items.push({ rubro: '', insumo: '', unidad: 'u', cantidad: 1, precioUnit: '', moneda: o.moneda || 'UYU', ivaTasa: 22 }); EDIT.sucio = true; render(); setTimeout(function () { var x = document.querySelectorAll('.pres-item input'); var f = document.querySelectorAll('.pres-item'); if (f.length) { var ult = f[f.length - 1]; ult.scrollIntoView({ block: 'center' }); ult.querySelector('input').focus(); } }, 50); }
 function quitarItem(i) {
   var it = EDIT.items[i];
   if (it.id && S.datos.asignaciones.some(function (a) { return a.itemId === it.id; }) &&
@@ -515,8 +522,17 @@ function quitarItem(i) {
   EDIT.items.splice(i, 1); EDIT.sucio = true; render();
 }
 function guardarPres() {
+  var items = EDIT.items.filter(function (it) {
+    return String(it.insumo || '').trim() || String(it.rubro || '').trim() || num(it.precioUnit) > 0;
+  }).map(function (it, i) {
+    var x = Object.assign({}, it);
+    if (!String(x.insumo || '').trim()) x.insumo = String(x.rubro || '').trim() || ('Insumo ' + (i + 1));
+    if (!(num(x.cantidad) > 0)) x.cantidad = 1;
+    return x;
+  });
+  if (!items.length) { toast('No hay renglones con datos para guardar'); return; }
   var b = document.getElementById('btnGuardarPres'); if (b) { b.disabled = true; b.textContent = 'Guardando…'; }
-  api('guardarPresupuesto', EDIT.obraId, EDIT.items, S.user).then(function (n) { EDIT = null; toast('Presupuesto guardado (' + n + ' ítems)'); return recargar(); })
+  api('guardarPresupuesto', EDIT.obraId, items, S.user).then(function (n) { EDIT = null; toast('Presupuesto guardado: ' + n + (n === 1 ? ' renglón' : ' renglones')); S.tab = 'resumen'; return recargar(); })
     .catch(function (e) { toast('Error: ' + e); if (b) { b.disabled = false; b.textContent = 'Guardar presupuesto'; } });
 }
 function formPegar() {
