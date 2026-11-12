@@ -173,7 +173,7 @@ function guardarLocal(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function leerLocal(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 
 function recargar() {
-  return api('getDatos').then(function (d) { S.datos = d; render(); })
+  return api('getDatos').then(function (d) { S.datos = d; try { localStorage.setItem('folium_datos', JSON.stringify(d)); } catch (e) {} render(); })
     .catch(function (e) { if (/clave del equipo/i.test(e)) return; document.getElementById('vista').innerHTML = '<div class="aviso rojo">No pude cargar los datos: ' + esc(e) + '</div>'; });
 }
 
@@ -556,12 +556,20 @@ function aplicarPegado() {
   EDIT.sucio = true; cerrarModal(); render(); toast(n + ' ítems agregados. Revisá y guardá.');
 }
 
+var PROMPT_PRESUPUESTO = ['Sos asistente de FOLIUM, empresa de paisajismo en Uruguay. Este archivo es un presupuesto enviado a un cliente.',
+  'Extraé el desglose y devolvé SOLO un JSON: {"moneda":"UYU"|"USD","lineas":[{"rubro":"Plantas|Tierra y sustratos|Coberturas|Riego|Materiales|Fletes|Mano de obra|Otros","insumo":"nombre","unidad":"u|m²|m³|bolsa|ml|kg|global","cantidad":número,"precioUnit":número SIN IVA,"ivaTasa":22|10|0}],"observaciones":"corto"}',
+  'Reglas: números con punto decimal y sin separador de miles. Si solo figura el total de la línea, precioUnit = total / cantidad. Si el precio figura con IVA incluido, pasalo a sin IVA.',
+  'Plantas y mano de obra suelen ir exentas (0); insumos y fletes con 22. Incluí la mano de obra como línea con rubro "Mano de obra". No incluyas subtotales, totales ni la línea de IVA.'].join('\n');
 function leerPresupuestoArchivo(input) {
   var f = input.files && input.files[0]; input.value = '';
   if (!f) return;
   abrirModal('<h2>Leyendo el presupuesto…</h2><p><span class="girando"></span>Puede tardar unos segundos si el PDF es largo.</p>', false);
-  prepararArchivo(f, 'Presupuesto').then(function (a) { return api('leerPresupuesto', { mime: a.mime, data: a.data }); })
-    .then(function (r) {
+  prepararArchivo(f, 'Presupuesto').then(function (a) { return gemini(PROMPT_PRESUPUESTO, a); })
+    .then(function (d) {
+      var mon = d.moneda === 'USD' ? 'USD' : 'UYU';
+      var r = { observaciones: String(d.observaciones || ''), lineas: (Array.isArray(d.lineas) ? d.lineas : []).map(function (l) {
+        return { rubro: String(l.rubro || ''), insumo: String(l.insumo || '').trim(), unidad: String(l.unidad || 'u'), cantidad: num(l.cantidad) || 1, precioUnit: num(l.precioUnit), ivaTasa: [22, 10].indexOf(num(l.ivaTasa)) > -1 ? num(l.ivaTasa) : 0, moneda: mon };
+      }).filter(function (l) { return l.insumo; }) };
       if (!r.lineas.length) { abrirModal('<div class="aviso amarillo">No encontré líneas de presupuesto en el archivo. ' + esc(r.observaciones) + '</div>'); return; }
       G = { lineasPres: r.lineas };
       abrirModal('<h2>Presupuesto leído</h2><p class="suave">' + r.lineas.length + ' líneas' + (r.observaciones ? ' · ' + esc(r.observaciones) : '') + '. Destildá lo que no quieras controlar (por ejemplo, la mano de obra).</p>' +
@@ -969,10 +977,10 @@ function prepararArchivo(f, tipo) {
       var img = new Image();
       img.onerror = function () { mal('Formato de imagen no soportado'); };
       img.onload = function () {
-        var max = 1600, w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
+        var max = 1280, w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
         var cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
         cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-        var url = cv.toDataURL('image/jpeg', 0.82);
+        var url = cv.toDataURL('image/jpeg', 0.72);
         ok({ tipo: tipo, mime: 'image/jpeg', data: url.split(',')[1], vista: url, nombre: f.name });
       };
       img.src = rd.result;
@@ -987,15 +995,94 @@ function renderMinis(idCont) {
       '<span class="q" onclick="G.archivos.splice(' + i + ',1);renderMinis(\'' + (idCont || 'gMinis') + '\')">×</span></div>';
   }).join('');
 }
+/* ---------------- Gemini desde la pantalla (con tiempo límite y en paralelo) ---------------- */
+var IA = null;
+function configIA() {
+  if (IA) return Promise.resolve(IA);
+  return api('configIA').then(function (r) {
+    IA = r;
+    var ok = leerLocal('folium_modelo_ok');
+    if (ok && IA.modelos.indexOf(ok) > -1) IA.modelos = [ok].concat(IA.modelos.filter(function (m) { return m !== ok; }));
+    return IA;
+  });
+}
+function geminiUno(m, cuerpo, conThinking) {
+  var ctrl = window.AbortController ? new AbortController() : null;
+  var t = setTimeout(function () { if (ctrl) ctrl.abort(); }, 25000);
+  var c = JSON.parse(JSON.stringify(cuerpo));
+  if (conThinking) c.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  return fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': IA.key }, body: JSON.stringify(c), signal: ctrl ? ctrl.signal : undefined
+  }).then(function (r) {
+    return r.text().then(function (tx) {
+      clearTimeout(t);
+      if (r.status === 400 && conThinking && /thinking/i.test(tx)) return geminiUno(m, cuerpo, false);
+      if (!r.ok) throw new Error(m + ': ' + (r.status === 503 ? 'saturado' : r.status === 429 ? 'límite gratuito alcanzado' : r.status));
+      var j = JSON.parse(tx), partes = ((((j.candidates || [])[0] || {}).content || {}).parts) || [];
+      var txt = partes.map(function (p) { return p.text || ''; }).join('').replace(/^```(json)?|```$/g, '').trim();
+      try { return { modelo: m, datos: JSON.parse(txt) }; } catch (e) { throw new Error(m + ': respuesta ilegible'); }
+    });
+  }, function (e) { clearTimeout(t); throw new Error(m + ': ' + (e && e.name === 'AbortError' ? 'no respondió a tiempo' : 'sin conexión')); });
+}
+/** Lanza los modelos escalonados (0 s, 2 s, 4 s) y se queda con la primera respuesta válida. */
+function gemini(prompt, archivo) {
+  return configIA().then(function () {
+    var cuerpo = { contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: archivo.mime || 'image/jpeg', data: archivo.data } }] }],
+                   generationConfig: { temperature: 0, responseMimeType: 'application/json' } };
+    var modelos = IA.modelos.slice(0, 3);
+    if (!modelos.length) throw new Error('No hay modelos de Gemini disponibles para esta clave.');
+    return new Promise(function (ok, mal) {
+      var pendientes = modelos.length, errores = [], listo = false;
+      modelos.forEach(function (m, i) {
+        setTimeout(function () {
+          if (listo) { if (--pendientes === 0 && !listo) mal(new Error(errores.join(' | '))); return; }
+          geminiUno(m, cuerpo, true).then(function (r) {
+            if (listo) return; listo = true; ok(r.datos);
+            if (leerLocal('folium_modelo_ok') !== r.modelo) { guardarLocal('folium_modelo_ok', r.modelo); api('modeloOk', r.modelo).catch(function () {}); }
+          }, function (e) { errores.push(e.message); if (--pendientes === 0 && !listo) mal(new Error(errores.join(' | '))); });
+        }, i * 2000);
+      });
+    });
+  }).catch(function (e) { throw (e && e.message) ? e.message : String(e); });
+}
+function promptBoleta(obrasIds) {
+  var items = S.datos.items.filter(function (i) { return obrasIds.indexOf(i.obraId) > -1; });
+  var lista = items.map(function (i) { var o = porId(S.datos.obras, i.obraId); return i.id + ' | ' + i.insumo + (i.unidad ? ' (' + i.unidad + ')' : '') + (o ? ' | obra: ' + nombreObra(o) : ''); }).join('\n') || '(sin presupuesto cargado)';
+  return ['Sos asistente administrativo de FOLIUM, empresa de paisajismo en Uruguay.',
+    'Leé este comprobante de compra (boleta, e-Ticket, e-Factura, remito o captura) y devolvé SOLO un JSON con esta forma:',
+    '{"fecha":"AAAA-MM-DD o vacío","proveedor":"nombre comercial","rutProveedor":"RUT emisor o vacío","tipoComprobante":"e-Factura" | "e-Ticket" | "Boleta manual" | "Remito" | "Otro",',
+    ' "rutComprador":"RUT del receptor si figura, o vacío","nroComprobante":"serie y número o vacío","moneda":"UYU" | "USD","total":número con IVA,"iva":número o null,',
+    ' "tasaIva":22 | 10 | 0 | "mixto","lineas":[{"descripcion":"texto","cantidad":número o null,"total":número con IVA o null,"itemId":"id del insumo o vacío"}],',
+    ' "confianza":"alta" | "media" | "baja","observaciones":"lo que no se pudo leer bien, corto"}',
+    'Reglas: números sin separador de miles y con punto decimal (los comprobantes uruguayos usan 1.234,56). $ o UYU son pesos; U$S, US$ o USD son dólares.',
+    'tasaIva: 22 si todo es tasa básica, 10 si todo es mínima (plantas, alimentos), 0 si es exento, "mixto" si hay de varias. Si no figura el IVA, calculalo según la tasa.',
+    'itemId: elegí de la lista de insumos el que corresponde a cada línea (mismo producto o planta, aunque esté escrito distinto o en latín/común). Si ninguno corresponde, vacío. No inventes ids.',
+    'Si no es un comprobante legible, devolvé total 0 y explicalo en observaciones.',
+    'Insumos presupuestados (id | insumo | obra):', lista].join('\n');
+}
+function normalizarLectura(d, obrasIds) {
+  var ids = {}; S.datos.items.forEach(function (i) { if (obrasIds.indexOf(i.obraId) > -1) ids[i.id] = 1; });
+  var lineas = (Array.isArray(d.lineas) ? d.lineas : []).map(function (l) {
+    return { descripcion: String(l.descripcion || '').trim(), cantidad: l.cantidad == null ? '' : num(l.cantidad), total: l.total == null ? '' : num(l.total), itemId: ids[l.itemId] ? l.itemId : '' };
+  }).filter(function (l) { return l.descripcion; });
+  var tipo = String(d.tipoComprobante || ''), ivaN = d.iva == null ? '' : num(d.iva);
+  var comp = /factura/i.test(tipo) ? 'e-Factura a RUT de FOLIUM' : (/otro|remito/i.test(tipo) && !ivaN ? 'Sin comprobante' : 'e-Ticket / boleta consumidor final');
+  var t = String(d.tasaIva) === 'mixto' ? 'manual' : String([22, 10].indexOf(num(d.tasaIva)) > -1 ? num(d.tasaIva) : 0);
+  var f = String(d.fecha || ''); if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) f = '';
+  return { fecha: f, proveedor: String(d.proveedor || '').trim(), rutProveedor: String(d.rutProveedor || ''), nroComprobante: String(d.nroComprobante || ''),
+    tipoComprobante: tipo, comprobante: comp, moneda: d.moneda === 'USD' ? 'USD' : 'UYU', total: num(d.total), iva: ivaN, tasaIva: t, lineas: lineas,
+    confianza: String(d.confianza || 'media'), observaciones: String(d.observaciones || '') };
+}
+
 /* ---------------- Lectura automática de la boleta (Gemini) ---------------- */
 function leerConIA(a) {
   a = a || G.archivos.filter(function (x) { return x.tipo === 'Boleta'; })[0];
   if (!a) { toast('Primero agregá la foto de la boleta'); return; }
   G.leyendo = true;
   var box = document.getElementById('gLectura');
-  box.innerHTML = '<div class="lectura"><span class="girando"></span>Leyendo la boleta… podés ir completando otras cosas.</div>';
+  box.innerHTML = '<div class="lectura"><span class="girando"></span>Leyendo la boleta (5 a 20 segundos)… podés ir completando otras cosas.</div>';
   var obrasIds = G.reparto.map(function (r) { return r.obraId; });
-  api('leerBoleta', { mime: a.mime, data: a.data }, obrasIds).then(function (r) {
+  gemini(promptBoleta(obrasIds), a).then(function (d) { return normalizarLectura(d, obrasIds); }).then(function (r) {
     G.leyendo = false;
     if (!document.getElementById('gTotal')) return; // se cerró el formulario
     aplicarLectura(r);
@@ -1217,6 +1304,7 @@ function guardarArchivosSueltos() {
 /* Arranque                                                             */
 /* =================================================================== */
 S.user = leerLocal('folium_usuario');
+try { var cache = JSON.parse(leerLocal('folium_datos') || 'null'); if (cache && cache.obras) { S.datos = cache; render(); } } catch (e) {}
 window.addEventListener('beforeunload', function (e) { if (EDIT && EDIT.sucio) { e.preventDefault(); e.returnValue = ''; } });
 recargar();
 </script>
